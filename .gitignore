@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+.env.local
+*.env
+!*.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build output
+backend/dist/
+frontend/dist/
+backend/backend-start.log
+
+# .NET
+windows/**/bin/
+windows/**/obj/
+windows/install-run-log.txt
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude local settings
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
