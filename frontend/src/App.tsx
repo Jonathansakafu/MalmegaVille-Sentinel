@@ -169,7 +169,7 @@ function App() {
                           />
                         </div>
                         <h3 className="mt-3 text-lg font-semibold text-slate-100">{incident.summary}</h3>
-                        <p className="mt-2 text-sm text-slate-300">Device: {incident.deviceId}</p>
+                        <p className="mt-2 break-all text-sm text-slate-300">Device: {incident.deviceId}</p>
                         <p className="mt-2 text-sm text-slate-300">Threat score: {incident.threatScore}</p>
                       </div>
                     ))}

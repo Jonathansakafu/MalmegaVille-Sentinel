@@ -106,7 +106,7 @@ function CapturesSection({
           <div className="mt-4 space-y-3 sm:hidden">
             {files.map((file) => (
               <div key={file._id ?? file.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm">
-                <p className="font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
+                <p className="break-all font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
                 {file.originalPath ? <p className="mt-1 break-all text-xs text-slate-400">{file.originalPath}</p> : null}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-slate-400">

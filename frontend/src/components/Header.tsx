@@ -27,7 +27,12 @@ function Header({
     <header className="rounded-3xl bg-brand-panel p-4 shadow-xl shadow-black/40 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <img src="/logo.jpeg" alt="MalmegaVille Sentinel" className="h-12 w-12 flex-shrink-0 object-contain sm:h-16 sm:w-16 lg:h-20 lg:w-20" />
+          <img
+            src="/logo.jpeg"
+            alt="MalmegaVille Sentinel"
+            className="flex-shrink-0 object-contain"
+            style={{ width: 'clamp(2.5rem, 12vw, 5rem)', height: 'clamp(2.5rem, 12vw, 5rem)' }}
+          />
           <p className="min-w-0 truncate text-sm text-slate-400 sm:text-base">Welcome back, {userEmail || 'security operator'}.</p>
         </div>
 

@@ -27,7 +27,12 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
     <div className="flex min-h-screen items-center justify-center bg-brand-dark px-4 py-6 text-white sm:px-6 sm:py-10">
       <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-brand-panel p-5 shadow-xl shadow-black/40 sm:p-8">
         <div className="mb-6 flex flex-col items-center text-center">
-          <img src="/logo.jpeg" alt="MalmegaVille Sentinel" className="mb-2 h-20 w-20 object-contain sm:h-32 sm:w-32 lg:h-40 lg:w-40" />
+          <img
+            src="/logo.jpeg"
+            alt="MalmegaVille Sentinel"
+            className="mb-2 object-contain"
+            style={{ width: 'clamp(3.5rem, 24vw, 8rem)', height: 'clamp(3.5rem, 24vw, 8rem)' }}
+          />
           <p className="text-sm text-slate-400 sm:text-base">Secure your endpoints with device monitoring and incident reporting.</p>
         </div>
 

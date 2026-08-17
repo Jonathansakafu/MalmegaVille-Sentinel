@@ -6,8 +6,13 @@
   color-scheme: dark;
 }
 
+
 html, body, #root {
   min-height: 100%;
+  /* Belt-and-suspenders: a single long unbroken string (an ID, a filename) anywhere
+     in the app should never be able to force horizontal scroll/pinch-zoom on mobile. */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
