@@ -20,6 +20,9 @@ export const emailPass = process.env.EMAIL_PASS;
 export const emailFrom = process.env.EMAIL_FROM ?? 'no-reply@malmegaville.local';
 export const alertEmailRecipient = process.env.ALERT_EMAIL_RECIPIENT;
 export const emailSecure = process.env.EMAIL_SECURE === 'true';
+// When set, emails send via Resend's HTTP API (port 443) instead of SMTP -
+// needed because raw SMTP is blocked outbound on some PaaS hosts (Railway included).
+export const resendApiKey = process.env.RESEND_API_KEY;
 export const syncToken = process.env.SYNC_TOKEN;
 export const dashboardUrl = (process.env.DASHBOARD_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 export const notificationLogoUrl = process.env.NOTIFICATION_LOGO_URL ?? `${dashboardUrl}/logo.jpeg`;
