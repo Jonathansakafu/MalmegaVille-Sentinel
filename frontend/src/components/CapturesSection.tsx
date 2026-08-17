@@ -22,13 +22,13 @@ function CapturesSection({
 
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h2 className="text-xl font-semibold">Captures</h2>
           <select
             value={deviceFilter ?? ''}
             onChange={(event) => onDeviceFilterChange(event.target.value || undefined)}
-            className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+            className="min-h-[44px] w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 sm:w-auto"
           >
             <option value="">All devices</option>
             {devices.map((device) => (
@@ -42,7 +42,7 @@ function CapturesSection({
       </div>
 
       {photos.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Camera size={18} className="text-brand-green" />
             Photos
@@ -56,7 +56,7 @@ function CapturesSection({
       ) : null}
 
       {locations.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <MapPin size={18} className="text-brand-green" />
             Locations
@@ -97,12 +97,31 @@ function CapturesSection({
       ) : null}
 
       {files.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <FileArchive size={18} className="text-brand-green" />
             USB Files
           </h3>
-          <div className="mt-4 overflow-x-auto">
+          {/* Card layout below sm - a horizontally-scrolling table is a poor touch-UX pattern on phones. */}
+          <div className="mt-4 space-y-3 sm:hidden">
+            {files.map((file) => (
+              <div key={file._id ?? file.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm">
+                <p className="font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
+                {file.originalPath ? <p className="mt-1 break-all text-xs text-slate-400">{file.originalPath}</p> : null}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-slate-400">
+                    {file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'} ·{' '}
+                    {file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}
+                  </span>
+                  {!file.skipped && (file._id ?? file.id) ? (
+                    <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[640px] text-left text-sm text-slate-300">
               <thead>
                 <tr className="text-slate-400">

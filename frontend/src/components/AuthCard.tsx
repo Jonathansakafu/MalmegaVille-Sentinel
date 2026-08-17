@@ -24,16 +24,16 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-dark px-4 py-10 text-white sm:px-6">
-      <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-brand-panel p-6 shadow-xl shadow-black/40 sm:p-8">
+    <div className="flex min-h-screen items-center justify-center bg-brand-dark px-4 py-6 text-white sm:px-6 sm:py-10">
+      <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-brand-panel p-5 shadow-xl shadow-black/40 sm:p-8">
         <div className="mb-6 flex flex-col items-center text-center">
-          <img src="/logo.jpeg" alt="MalmegaVille Sentinel" className="mb-2 h-32 w-32 object-contain sm:h-40 sm:w-40" />
-          <p className="text-slate-400">Secure your endpoints with device monitoring and incident reporting.</p>
+          <img src="/logo.jpeg" alt="MalmegaVille Sentinel" className="mb-2 h-20 w-20 object-contain sm:h-32 sm:w-32 lg:h-40 lg:w-40" />
+          <p className="text-sm text-slate-400 sm:text-base">Secure your endpoints with device monitoring and incident reporting.</p>
         </div>
 
         <div className="mb-6 flex justify-center gap-2">
           <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-[44px] flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
               view === 'login' ? 'bg-brand-green text-black' : 'border border-slate-700 bg-slate-900 text-slate-300'
             }`}
             onClick={() => setView('login')}
@@ -42,7 +42,7 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
             Login
           </button>
           <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-[44px] flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
               view === 'register' ? 'bg-brand-green text-black' : 'border border-slate-700 bg-slate-900 text-slate-300'
             }`}
             onClick={() => setView('register')}
@@ -80,7 +80,7 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
           >
             {submitting ? 'Please wait…' : view === 'login' ? 'Sign in' : 'Create account'}
           </button>

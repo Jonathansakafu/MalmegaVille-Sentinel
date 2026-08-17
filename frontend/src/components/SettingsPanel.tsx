@@ -60,7 +60,7 @@ function SettingsPanel({ token }: { token: string }) {
   };
 
   return (
-    <section className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <Mail size={18} className="text-brand-green" />
         Notification Settings
@@ -110,12 +110,12 @@ function SettingsPanel({ token }: { token: string }) {
             </span>
           </label>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               onClick={handleSave}
               disabled={saving}
               type="button"
-              className="flex items-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
             >
               <Save size={16} />
               Save Settings
@@ -124,7 +124,7 @@ function SettingsPanel({ token }: { token: string }) {
               onClick={handleTest}
               disabled={testing}
               type="button"
-              className="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
             >
               <Send size={16} />
               Send Test Alert

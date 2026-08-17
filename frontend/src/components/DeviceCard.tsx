@@ -23,12 +23,12 @@ function DeviceCard({
         <StatusBadge label={device.isLost ? 'Lost / Stolen' : 'Safe'} tone={device.isLost ? 'danger' : 'safe'} />
       </div>
       <p className="mt-2 text-sm text-slate-400">Last seen: {new Date(device.lastSeen).toLocaleString()}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         <button
           onClick={() => onToggleLost(device)}
           disabled={pending}
           type="button"
-          className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+          className={`flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
             device.isLost ? 'bg-brand-green text-black hover:bg-white' : 'bg-rose-500 text-black hover:bg-rose-400'
           }`}
         >
@@ -38,7 +38,7 @@ function DeviceCard({
         <button
           onClick={() => onViewCaptures(device.deviceId)}
           type="button"
-          className="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:border-brand-green hover:text-brand-green"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green"
         >
           <Images size={14} />
           View Captures

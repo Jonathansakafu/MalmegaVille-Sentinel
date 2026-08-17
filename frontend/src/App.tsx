@@ -122,13 +122,13 @@ function App() {
         ) : activeTab === 'settings' ? (
           <SettingsPanel token={token} />
         ) : dashboardLoading ? (
-          <div className="rounded-3xl bg-brand-panel p-10 shadow-lg shadow-black/30">
+          <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 sm:p-10">
             <Spinner label="Loading dashboard data..." />
           </div>
         ) : (
           <>
             <section className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+              <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
                 <h2 className="flex items-center gap-2 text-xl font-semibold">
                   <Activity size={18} className="text-brand-green" />
                   Threat Overview
@@ -150,7 +150,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 lg:col-span-2">
+              <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6 lg:col-span-2">
                 <h2 className="flex items-center gap-2 text-xl font-semibold">
                   <AlertTriangle size={18} className="text-brand-green" />
                   Recent Incidents
@@ -179,7 +179,7 @@ function App() {
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+              <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
                 <h2 className="flex items-center gap-2 text-xl font-semibold">
                   <ShieldQuestion size={18} className="text-brand-green" />
                   Device Inventory
@@ -201,7 +201,7 @@ function App() {
                 )}
               </div>
 
-              <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30">
+              <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
                 <h2 className="flex items-center gap-2 text-xl font-semibold">
                   <LayoutGrid size={18} className="text-brand-green" />
                   Action Center
