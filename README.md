@@ -2,7 +2,7 @@
 
 MalmegaVille Sentinel is a personal endpoint security platform: it watches your Windows PC for security events (logins, USB activity), alerts you by email and Telegram, and — if the device is ever lost or stolen — silently captures a webcam photo, an approximate location, and copies files from any USB drive that gets inserted, so you have evidence to help recover it.
 
-**Live dashboard:** _deployed via Railway — see below_
+**Live dashboard:** <https://app-production-fd2d.up.railway.app>
 
 ## How it works
 
@@ -65,3 +65,8 @@ Both `windows/CoreService` and `windows/DesktopApp` are standard .NET 8 projects
 ## Deployment
 
 The whole system (backend + frontend + MongoDB) deploys as a single Railway project. The root `package.json` builds the frontend, then the backend, and the backend serves the built frontend directly — no separate frontend host or CORS configuration needed. See `backend/.env.example` for the full list of production environment variables (`DASHBOARD_URL`, `SYNC_TOKEN`, `CAPTURE_STORAGE_DIR`, etc.).
+
+### Known limitations on the current deployment
+
+- **Email alerts don't send from Railway.** Gmail SMTP (both port 587 and 465) times out from Railway's network — several PaaS providers block outbound SMTP by default to prevent spam relaying. Telegram alerts are unaffected (HTTPS API). To get email working in production, swap `emailService.ts` for an HTTP-API email provider (Resend, SendGrid, Mailgun) instead of raw SMTP.
+- **Capture storage isn't on a persistent volume yet.** The Railway CLI (`railway volume add`) crashed when attaching one during setup; captured photos/USB files currently live on the container's ephemeral disk and won't survive a redeploy. Attach a volume mounted at `/data` via the Railway dashboard and it'll be picked up automatically (`CAPTURE_STORAGE_DIR=/data/captures` is already set).

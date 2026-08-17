@@ -94,13 +94,15 @@ router.post('/login', async (req, res) => {
 
   const token = createToken(String(user._id));
 
-  await notifySecurityEvent({
+  notifySecurityEvent({
     deviceName: user.email,
     eventType: 'User Login',
     timestampUtc: new Date(),
     severity: 'Informational',
     description: `User ${user.email} signed in successfully.`,
     recommendedAction: 'If this login was unexpected, investigate immediately.'
+  }).catch((error) => {
+    console.error('Login notification failed', error);
   });
 
   res.json({ token, user: { email: user.email, id: user._id } });
@@ -120,13 +122,15 @@ router.post('/logout', authenticate, async (req, res) => {
   const user = await User.findById(userId);
   const identity = user?.email ?? 'Unknown user';
 
-  await notifySecurityEvent({
+  notifySecurityEvent({
     deviceName: identity,
     eventType: 'User Logout',
     timestampUtc: new Date(),
     severity: 'Informational',
     description: `User ${identity} signed out of the portal.`,
     recommendedAction: 'Verify this logout if it was not initiated by a user.'
+  }).catch((error) => {
+    console.error('Logout notification failed', error);
   });
 
   res.json({ message: 'Logged out successfully.' });
