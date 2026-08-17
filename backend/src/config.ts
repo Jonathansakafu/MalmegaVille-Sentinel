@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
 
 dotenv.config();
 
@@ -20,6 +21,19 @@ export const emailFrom = process.env.EMAIL_FROM ?? 'no-reply@malmegaville.local'
 export const alertEmailRecipient = process.env.ALERT_EMAIL_RECIPIENT;
 export const emailSecure = process.env.EMAIL_SECURE === 'true';
 export const syncToken = process.env.SYNC_TOKEN;
-export const notificationMode = process.env.NOTIFICATION_MODE?.toLowerCase() ?? 'email';
-export const notificationLogoUrl = process.env.NOTIFICATION_LOGO_URL ?? '';
-export const emailOnlyTestingMode = notificationMode === 'email';
+export const dashboardUrl = (process.env.DASHBOARD_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+export const notificationLogoUrl = process.env.NOTIFICATION_LOGO_URL ?? `${dashboardUrl}/logo.jpeg`;
+export const captureStorageDir = process.env.CAPTURE_STORAGE_DIR
+  ? path.resolve(process.env.CAPTURE_STORAGE_DIR)
+  : path.join(process.cwd(), 'capture-storage');
+export const captureMaxFileBytes = process.env.CAPTURE_MAX_FILE_BYTES
+  ? Number(process.env.CAPTURE_MAX_FILE_BYTES)
+  : 25 * 1024 * 1024;
+export const captureMaxSessionBytes = process.env.CAPTURE_MAX_SESSION_BYTES
+  ? Number(process.env.CAPTURE_MAX_SESSION_BYTES)
+  : 500 * 1024 * 1024;
+export const ipGeolocationEnabled = process.env.IP_GEOLOCATION_ENABLED !== 'false';
+// Free, no-API-key IP geolocation lookup used as a fallback when the agent
+// can't get a Wi-Fi based fix. Sends the device's public IP to this
+// third-party service - documented in .env.example so it's an informed default.
+export const ipGeolocationUrl = process.env.IP_GEOLOCATION_URL ?? 'http://ip-api.com/json';

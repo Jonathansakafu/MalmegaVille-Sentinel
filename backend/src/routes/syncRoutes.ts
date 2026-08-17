@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import SyncEvent from '../models/SyncEvent.js';
+import Device from '../models/Device.js';
 import { syncToken, dblessTestMode } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { findDeviceByDeviceId } from '../services/inMemoryStore.js';
 
 const router = Router();
 
-function validateSyncToken(req: any) {
+export function validateSyncToken(req: any) {
   if (!syncToken) {
     return true;
   }
@@ -38,8 +40,14 @@ router.post('/events', async (req, res) => {
     return res.status(400).json({ message: 'No valid sync event payload found.' });
   }
 
+  // Routine telemetry (e.g. the desktop agent's 15-second heartbeat) is
+  // "Informational" severity and arrives constantly - alerting on it would
+  // flood every configured channel. Only notify for events severe enough to
+  // actually warrant the owner's attention.
+  const alertWorthyEvents = events.filter((event) => event.severity.toLowerCase() !== 'informational');
+
   if (dblessTestMode) {
-    for (const event of events) {
+    for (const event of alertWorthyEvents) {
       notifySecurityEvent({
         deviceName: event.deviceName,
         eventType: event.eventType,
@@ -50,7 +58,7 @@ router.post('/events', async (req, res) => {
         recommendedAction: event.recommendedAction,
         metadata: event.metadata
       }).catch((error) => {
-        console.error('Email notification failed for sync event', error);
+        console.error('Notification failed for sync event', error);
       });
     }
 
@@ -59,7 +67,7 @@ router.post('/events', async (req, res) => {
 
   const savedEvents = await SyncEvent.insertMany(events);
 
-  for (const event of events) {
+  for (const event of alertWorthyEvents) {
     notifySecurityEvent({
       deviceName: event.deviceName,
       eventType: event.eventType,
@@ -70,7 +78,7 @@ router.post('/events', async (req, res) => {
       recommendedAction: event.recommendedAction,
       metadata: event.metadata
     }).catch((error) => {
-      console.error('Email notification failed for sync event', error);
+      console.error('Notification failed for sync event', error);
     });
   }
 
@@ -79,6 +87,25 @@ router.post('/events', async (req, res) => {
 
 router.get('/status', (_req, res) => {
   res.json({ healthy: true, syncEndpoint: '/api/sync/events' });
+});
+
+router.get('/lost-status', async (req, res) => {
+  if (!validateSyncToken(req)) {
+    return res.status(401).json({ message: 'Invalid sync token.' });
+  }
+
+  const deviceId = String(req.query.deviceId ?? '');
+  if (!deviceId) {
+    return res.status(400).json({ message: 'deviceId is required.' });
+  }
+
+  if (dblessTestMode) {
+    const device = findDeviceByDeviceId(deviceId);
+    return res.json({ deviceId, isLost: device?.isLost ?? false });
+  }
+
+  const device = await Device.findOne({ deviceId });
+  res.json({ deviceId, isLost: device?.isLost ?? false });
 });
 
 export default router;

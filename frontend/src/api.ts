@@ -6,16 +6,18 @@ type AuthResponse = {
   };
 };
 
-type Device = {
+export type Device = {
   _id?: string;
   deviceId: string;
   name: string;
   operatingSystem: string;
   lastSeen: string;
   securityStatus: string;
+  isLost?: boolean;
+  lostAt?: string | null;
 };
 
-type Incident = {
+export type Incident = {
   _id?: string;
   deviceId: string;
   incidentType: string;
@@ -23,6 +25,22 @@ type Incident = {
   severity: string;
   summary: string;
   createdAt: string;
+};
+
+export type Capture = {
+  _id?: string;
+  id?: string;
+  deviceId: string;
+  captureType: 'webcam_photo' | 'usb_file' | 'usb_manifest' | 'location';
+  triggerEvent?: string;
+  sessionId?: string;
+  originalFileName?: string;
+  originalPath?: string;
+  sizeBytes?: number;
+  skipped: boolean;
+  skipReason?: string;
+  capturedAtUtc: string;
+  metadata?: Record<string, unknown>;
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -59,6 +77,62 @@ export async function fetchDevices(token: string): Promise<Device[]> {
 
 export async function fetchIncidents(token: string): Promise<Incident[]> {
   return request('/api/incidents', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function setDeviceLostStatus(token: string, id: string, isLost: boolean): Promise<Device> {
+  return request(`/api/devices/${id}/lost-status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ isLost })
+  });
+}
+
+export async function fetchCaptures(token: string, deviceId?: string): Promise<Capture[]> {
+  const query = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : '';
+  return request(`/api/captures${query}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function fetchCaptureBlobUrl(token: string, captureId: string): Promise<string> {
+  const response = await fetch(`/api/captures/${captureId}/content`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    throw new Error('Unable to load capture content.');
+  }
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
+export type NotificationSettings = {
+  alertEmailRecipient: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+};
+
+export type NotificationChannelResult = { configured: boolean; sent: boolean; error?: string };
+export type NotificationTestResult = { email: NotificationChannelResult; telegram: NotificationChannelResult };
+
+export async function fetchNotificationSettings(token: string): Promise<NotificationSettings> {
+  return request('/api/settings/notifications', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function saveNotificationSettings(token: string, settings: NotificationSettings): Promise<NotificationSettings> {
+  return request('/api/settings/notifications', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(settings)
+  });
+}
+
+export async function sendTestAlert(token: string): Promise<NotificationTestResult> {
+  return request('/api/settings/notifications/test', {
+    method: 'POST',
     headers: { Authorization: `Bearer ${token}` }
   });
 }

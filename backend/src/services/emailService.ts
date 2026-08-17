@@ -13,14 +13,16 @@ interface EmailOptions {
   subject: string;
   text: string;
   html?: string;
+  recipient?: string;
 }
 
-export function isEmailConfigured() {
-  return Boolean(emailHost && emailPort && emailUser && emailPass && alertEmailRecipient);
+export function isEmailConfigured(recipient?: string) {
+  return Boolean(emailHost && emailPort && emailUser && emailPass && (recipient || alertEmailRecipient));
 }
 
-export async function sendAlertEmail({ subject, text, html }: EmailOptions) {
-  if (!isEmailConfigured()) {
+export async function sendAlertEmail({ subject, text, html, recipient }: EmailOptions) {
+  const to = recipient || alertEmailRecipient;
+  if (!isEmailConfigured(to)) {
     return;
   }
 
@@ -36,7 +38,7 @@ export async function sendAlertEmail({ subject, text, html }: EmailOptions) {
 
   await transporter.sendMail({
     from: emailFrom,
-    to: alertEmailRecipient,
+    to,
     subject,
     text,
     html

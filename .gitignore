@@ -13,6 +13,10 @@ backend/dist/
 frontend/dist/
 backend/backend-start.log
 
+# Lost-device captures (webcam photos / copied USB files - sensitive, never commit)
+capture-storage/
+backend/capture-storage/
+
 # .NET
 windows/**/bin/
 windows/**/obj/

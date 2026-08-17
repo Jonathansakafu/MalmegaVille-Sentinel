@@ -3,6 +3,8 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import Incident from '../models/Incident.js';
 import Device from '../models/Device.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { dblessTestMode } from '../config.js';
+import { listIncidentsForUser, addIncident, findDeviceByDeviceId } from '../services/inMemoryStore.js';
 
 const router = Router();
 
@@ -12,6 +14,10 @@ router.get('/', async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (dblessTestMode) {
+    return res.json(listIncidentsForUser(userId));
   }
 
   const incidents = await Incident.find({ userId }).sort({ createdAt: -1 });
@@ -35,7 +41,7 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ message: 'deviceId, incidentType, threatScore, severity, and summary are required and must be valid.' });
   }
 
-  const incident = new Incident({
+  const incidentFields = {
     deviceId,
     userId,
     incidentType,
@@ -43,12 +49,13 @@ router.post('/', async (req, res) => {
     severity,
     summary,
     details: typeof details === 'object' && details !== null ? details : {}
-  });
+  };
 
-  await incident.save();
+  const incident = dblessTestMode ? addIncident(incidentFields) : await new Incident(incidentFields).save();
 
-  const device = await Device.findOne({ userId, deviceId });
-  const deviceName = device?.name ?? 'Unknown device';
+  const deviceName = dblessTestMode
+    ? findDeviceByDeviceId(deviceId)?.name ?? 'Unknown device'
+    : (await Device.findOne({ userId, deviceId }))?.name ?? 'Unknown device';
 
   notifySecurityEvent({
     deviceName,

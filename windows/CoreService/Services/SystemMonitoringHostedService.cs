@@ -12,6 +12,10 @@ public sealed class SystemMonitoringHostedService : BackgroundService
     private readonly OfflineEventQueue _offlineQueue;
     private readonly BackendSyncClient _syncClient;
     private readonly SyncTriggerWatcher _triggerWatcher;
+    private readonly LostStatusClient _lostStatusClient;
+    private readonly RemovableDriveWatcher _removableDriveWatcher;
+    private readonly UsbCaptureService _usbCaptureService;
+    private readonly PendingCaptureQueue _pendingCaptureQueue;
     private ManagementEventWatcher? _usbArrivalWatcher;
     private ManagementEventWatcher? _usbRemovalWatcher;
     private bool _usbWatchersInitialized;
@@ -22,13 +26,21 @@ public sealed class SystemMonitoringHostedService : BackgroundService
         EncryptedEventStore eventStore,
         OfflineEventQueue offlineQueue,
         BackendSyncClient syncClient,
-        SyncTriggerWatcher triggerWatcher)
+        SyncTriggerWatcher triggerWatcher,
+        LostStatusClient lostStatusClient,
+        RemovableDriveWatcher removableDriveWatcher,
+        UsbCaptureService usbCaptureService,
+        PendingCaptureQueue pendingCaptureQueue)
     {
         _logger = logger;
         _eventStore = eventStore;
         _offlineQueue = offlineQueue;
         _syncClient = syncClient;
         _triggerWatcher = triggerWatcher;
+        _lostStatusClient = lostStatusClient;
+        _removableDriveWatcher = removableDriveWatcher;
+        _usbCaptureService = usbCaptureService;
+        _pendingCaptureQueue = pendingCaptureQueue;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,6 +48,10 @@ public sealed class SystemMonitoringHostedService : BackgroundService
         _logger.LogInformation("MalmegaVille Sentinel Core Service is starting.");
 
         InitializeUsbWatchers();
+
+        var deviceId = DeviceIdentity.GetOrCreateDeviceId();
+        _removableDriveWatcher.DriveArrived += (driveLetter) => HandleRemovableDriveArrived(driveLetter, deviceId);
+        _removableDriveWatcher.Start();
 
         var startupEvent = new SecurityEvent(
             "Service Startup",
@@ -60,6 +76,8 @@ public sealed class SystemMonitoringHostedService : BackgroundService
                 }
 
                 await _syncClient.TrySyncQueuedEventsAsync(_offlineQueue, stoppingToken);
+                await _lostStatusClient.RefreshAsync(deviceId, stoppingToken);
+                await _pendingCaptureQueue.FlushPendingAsync(stoppingToken);
                 _logger.LogDebug("Running security monitoring cycle.");
 
                 var heartbeatEvent = new SecurityEvent(
@@ -83,6 +101,27 @@ public sealed class SystemMonitoringHostedService : BackgroundService
 
         _logger.LogInformation("MalmegaVille Sentinel Core Service is stopping.");
         DisposeUsbWatchers();
+        _removableDriveWatcher.Dispose();
+    }
+
+    private void HandleRemovableDriveArrived(string driveLetter, string deviceId)
+    {
+        if (!_lostStatusClient.LastKnownLost)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _usbCaptureService.CaptureSessionAsync(driveLetter, deviceId, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "USB capture session failed for drive {DriveLetter}.", driveLetter);
+            }
+        });
     }
 
     private void InitializeUsbWatchers()

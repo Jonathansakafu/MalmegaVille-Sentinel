@@ -12,6 +12,11 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<BackendSyncClient>();
         services.AddSingleton<SyncTriggerWatcher>();
         services.AddSingleton<ServiceRecoveryConfigurator>();
+        services.AddSingleton<LostStatusClient>();
+        services.AddSingleton<CaptureUploadClient>();
+        services.AddSingleton<PendingCaptureQueue>();
+        services.AddSingleton<UsbCaptureService>();
+        services.AddSingleton<RemovableDriveWatcher>();
         services.AddHostedService<SystemMonitoringHostedService>();
     })
     .ConfigureLogging(logging =>

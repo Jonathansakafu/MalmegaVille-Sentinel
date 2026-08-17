@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware.js';
 import Device from '../models/Device.js';
+import { dblessTestMode } from '../config.js';
+import { listDevicesForUser, upsertDevice, setDeviceLostStatus } from '../services/inMemoryStore.js';
 
 const router = Router();
 
@@ -10,6 +12,10 @@ router.get('/', async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (dblessTestMode) {
+    return res.json(listDevicesForUser(userId));
   }
 
   const devices = await Device.find({ userId });
@@ -25,6 +31,11 @@ router.post('/', async (req, res) => {
   const { deviceId, name, operatingSystem } = req.body;
   if (typeof deviceId !== 'string' || typeof name !== 'string' || typeof operatingSystem !== 'string') {
     return res.status(400).json({ message: 'deviceId, name, and operatingSystem are required.' });
+  }
+
+  if (dblessTestMode) {
+    const device = upsertDevice({ userId, deviceId, name, operatingSystem });
+    return res.status(201).json(device);
   }
 
   const existingDevice = await Device.findOne({ userId, deviceId });
@@ -47,6 +58,37 @@ router.post('/', async (req, res) => {
 
   await device.save();
   res.status(201).json(device);
+});
+
+router.patch('/:id/lost-status', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const { isLost } = req.body;
+  if (typeof isLost !== 'boolean') {
+    return res.status(400).json({ message: 'isLost boolean is required.' });
+  }
+
+  if (dblessTestMode) {
+    const device = setDeviceLostStatus(req.params.id, userId, isLost);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+    return res.json(device);
+  }
+
+  const device = await Device.findOne({ _id: req.params.id, userId });
+  if (!device) {
+    return res.status(404).json({ message: 'Device not found.' });
+  }
+
+  device.isLost = isLost;
+  device.lostAt = isLost ? new Date() : null;
+  device.securityStatus = isLost ? 'stolen' : 'safe';
+  await device.save();
+  res.json(device);
 });
 
 export default router;

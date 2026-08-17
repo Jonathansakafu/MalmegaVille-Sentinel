@@ -6,7 +6,9 @@ const deviceSchema = new mongoose.Schema({
   name: { type: String, required: true },
   operatingSystem: { type: String, required: true },
   lastSeen: { type: Date, default: () => new Date() },
-  securityStatus: { type: String, default: 'safe' }
+  securityStatus: { type: String, default: 'safe' },
+  isLost: { type: Boolean, default: false },
+  lostAt: { type: Date, default: null }
 });
 
 const Device = mongoose.model('Device', deviceSchema);

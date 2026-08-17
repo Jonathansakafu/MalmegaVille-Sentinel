@@ -1,22 +1,28 @@
-import { telegramBotToken } from '../config.js';
+import { telegramBotToken as envBotToken, telegramChatId as envChatId } from '../config.js';
 
 const TELEGRAM_API_URL = 'https://api.telegram.org';
 
 interface SendMessageOptions {
-  chatId: string;
   text: string;
+  botToken?: string;
+  chatId?: string;
 }
 
-export async function sendTelegramAlert({ chatId, text }: SendMessageOptions) {
-  const token = telegramBotToken;
-  if (!token) {
-    throw new Error('TELEGRAM_BOT_TOKEN is not configured');
+export function isTelegramConfigured(botToken?: string, chatId?: string) {
+  return Boolean((botToken || envBotToken) && (chatId || envChatId));
+}
+
+export async function sendTelegramAlert({ text, botToken, chatId }: SendMessageOptions) {
+  const token = botToken || envBotToken;
+  const chat = chatId || envChatId;
+  if (!isTelegramConfigured(token, chat)) {
+    return;
   }
 
   const response = await fetch(`${TELEGRAM_API_URL}/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
+    body: JSON.stringify({ chat_id: chat, text })
   });
 
   if (!response.ok) {
