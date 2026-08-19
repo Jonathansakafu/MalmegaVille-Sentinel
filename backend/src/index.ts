@@ -12,6 +12,7 @@ import incidentRoutes from './routes/incidentRoutes.js';
 import syncRoutes from './routes/syncRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import captureRoutes from './routes/captureRoutes.js';
+import trustedUsbRoutes from './routes/trustedUsbRoutes.js';
 import { validateStartupConfig } from './startup.js';
 import { mongodbUri, dblessTestMode } from './config.js';
 
@@ -29,6 +30,7 @@ app.use('/api/incidents', incidentRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/captures', captureRoutes);
+app.use('/api/trusted-usb-devices', trustedUsbRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', application: 'malmegaville-sentinel-backend' });

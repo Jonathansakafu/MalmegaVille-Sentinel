@@ -6,6 +6,7 @@ public sealed class SecurityEvent
     public DateTime TimestampUtc { get; init; }
     public string Description { get; init; }
     public string Severity { get; init; }
+    public string? DeviceId { get; init; }
     public string? DeviceName { get; init; }
     public double? ThreatScore { get; init; }
     public string? RecommendedAction { get; init; }
@@ -16,6 +17,7 @@ public sealed class SecurityEvent
         DateTime timestampUtc,
         string description,
         string severity = "Informational",
+        string? deviceId = null,
         string? deviceName = null,
         double? threatScore = null,
         string? recommendedAction = null,
@@ -25,6 +27,7 @@ public sealed class SecurityEvent
         TimestampUtc = timestampUtc;
         Description = description;
         Severity = severity;
+        DeviceId = deviceId;
         DeviceName = deviceName;
         ThreatScore = threatScore;
         RecommendedAction = recommendedAction;

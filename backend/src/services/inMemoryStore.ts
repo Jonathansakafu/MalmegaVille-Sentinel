@@ -196,3 +196,46 @@ export function sumSessionBytes(deviceId: string, sessionId: string, captureType
     .filter((capture) => capture.deviceId === deviceId && capture.sessionId === sessionId && capture.captureType === captureType)
     .reduce((total, capture) => total + (capture.sizeBytes ?? 0), 0);
 }
+
+export interface InMemoryTrustedUsbDevice {
+  id: string;
+  identifier: string;
+  label: string;
+  createdAt: Date;
+}
+
+const trustedUsbDevices: InMemoryTrustedUsbDevice[] = [];
+let nextTrustedUsbDeviceId = 1;
+
+export function listTrustedUsbDevices(): InMemoryTrustedUsbDevice[] {
+  return trustedUsbDevices;
+}
+
+export function findTrustedUsbDeviceByIdentifier(identifier: string): InMemoryTrustedUsbDevice | undefined {
+  return trustedUsbDevices.find((device) => device.identifier === identifier);
+}
+
+export function addTrustedUsbDevice(identifier: string, label: string): InMemoryTrustedUsbDevice {
+  const device: InMemoryTrustedUsbDevice = { id: String(nextTrustedUsbDeviceId++), identifier, label, createdAt: new Date() };
+  trustedUsbDevices.push(device);
+  return device;
+}
+
+export function removeTrustedUsbDevice(id: string): boolean {
+  const index = trustedUsbDevices.findIndex((device) => device.id === id);
+  if (index === -1) return false;
+  trustedUsbDevices.splice(index, 1);
+  return true;
+}
+
+const recentUsbEvents: { deviceName: string; description: string; timestampUtc: Date }[] = [];
+const MAX_RECENT_USB_EVENTS = 30;
+
+export function recordUsbConnectEvent(deviceName: string, description: string, timestampUtc: Date): void {
+  recentUsbEvents.unshift({ deviceName, description, timestampUtc });
+  recentUsbEvents.length = Math.min(recentUsbEvents.length, MAX_RECENT_USB_EVENTS);
+}
+
+export function listRecentUsbEvents(): { deviceName: string; description: string; timestampUtc: Date }[] {
+  return recentUsbEvents;
+}

@@ -58,6 +58,7 @@ public sealed class SystemMonitoringHostedService : BackgroundService
             DateTime.UtcNow,
             "Core service has started.",
             severity: "Informational",
+            deviceId: deviceId,
             deviceName: "Local Host",
             recommendedAction: "Monitor service status.");
 
@@ -85,6 +86,7 @@ public sealed class SystemMonitoringHostedService : BackgroundService
                     DateTime.UtcNow,
                     "Core service heartbeat.",
                     severity: "Informational",
+                    deviceId: deviceId,
                     deviceName: "Local Host");
 
                 await _eventStore.SaveEventAsync(heartbeatEvent, stoppingToken);

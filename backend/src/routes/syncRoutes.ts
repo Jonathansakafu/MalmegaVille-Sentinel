@@ -1,15 +1,25 @@
 import { Router } from 'express';
 import SyncEvent from '../models/SyncEvent.js';
 import Device from '../models/Device.js';
+import TrustedUsbDevice from '../models/TrustedUsbDevice.js';
 import { syncToken, dblessTestMode } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
 import { agentLimiter } from '../middleware/rateLimiters.js';
-import { findDeviceByDeviceId } from '../services/inMemoryStore.js';
+import { findDeviceByDeviceId, listTrustedUsbDevices, recordUsbConnectEvent } from '../services/inMemoryStore.js';
 
 const router = Router();
 const MAX_EVENTS_PER_BATCH = 500;
+const USB_CONNECT_EVENT_TYPE = 'USB Device Connected';
 
 router.use(agentLimiter);
+
+async function getTrustedUsbIdentifiers(): Promise<Set<string>> {
+  if (dblessTestMode) {
+    return new Set(listTrustedUsbDevices().map((device) => device.identifier));
+  }
+  const devices = await TrustedUsbDevice.find().select('identifier');
+  return new Set(devices.map((device) => device.identifier));
+}
 
 export function validateSyncToken(req: any) {
   if (!syncToken) {
@@ -46,6 +56,21 @@ router.post('/events', async (req, res) => {
 
   if (events.length === 0) {
     return res.status(400).json({ message: 'No valid sync event payload found.' });
+  }
+
+  // A USB-connect event for a drive on the trusted list is downgraded to
+  // Informational before it ever reaches the alert-worthy filter below, so
+  // known devices never trigger a notification. Unrecognized ones are left
+  // alone (still alert) and tracked for the "Mark as Known" dashboard action.
+  const trustedIdentifiers = await getTrustedUsbIdentifiers();
+  for (const event of events) {
+    if (event.eventType === USB_CONNECT_EVENT_TYPE) {
+      if (trustedIdentifiers.has(event.deviceName)) {
+        event.severity = 'Informational';
+      } else if (dblessTestMode && event.deviceName !== 'unknown') {
+        recordUsbConnectEvent(event.deviceName, event.description, event.timestampUtc);
+      }
+    }
   }
 
   // Routine telemetry (e.g. the desktop agent's 15-second heartbeat) is

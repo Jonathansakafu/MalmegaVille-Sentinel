@@ -145,3 +145,48 @@ export async function sendTestAlert(token: string): Promise<NotificationTestResu
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+export type TrustedUsbDevice = {
+  _id?: string;
+  id?: string;
+  identifier: string;
+  label: string;
+  createdAt: string;
+};
+
+export type UnrecognizedUsbEvent = {
+  deviceName: string;
+  description: string;
+  timestampUtc: string;
+};
+
+export async function fetchTrustedUsbDevices(token: string): Promise<TrustedUsbDevice[]> {
+  return request('/api/trusted-usb-devices', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function addTrustedUsbDevice(token: string, identifier: string, label: string): Promise<TrustedUsbDevice> {
+  return request('/api/trusted-usb-devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ identifier, label })
+  });
+}
+
+export async function removeTrustedUsbDevice(token: string, id: string): Promise<void> {
+  const response = await fetch(`/api/trusted-usb-devices/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message ?? response.statusText);
+  }
+}
+
+export async function fetchUnrecognizedUsbEvents(token: string): Promise<UnrecognizedUsbEvent[]> {
+  return request('/api/trusted-usb-devices/recent-unrecognized', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
