@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import User from '../models/User.js';
 import { jwtSecret, dblessTestMode } from '../config.js';
 import { authenticate } from '../middleware/authMiddleware.js';
@@ -9,13 +11,20 @@ import { createUser, findUserByEmail, findUserById } from '../services/inMemoryS
 
 const router = Router();
 
-function validateEmail(email: unknown): email is string {
-  return typeof email === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-}
+const credentialsSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8)
+});
 
-function validatePassword(password: unknown): password is string {
-  return typeof password === 'string' && password.length >= 8;
-}
+// Scoped to /login and /register: throttles credential-guessing without
+// affecting authenticated traffic on the rest of the API.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many attempts. Please try again later.' }
+});
 
 function createToken(userId: string) {
   if (!jwtSecret) {
@@ -24,12 +33,12 @@ function createToken(userId: string) {
   return jwt.sign({ userId }, jwtSecret, { expiresIn: '30d' });
 }
 
-router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!validateEmail(email) || !validatePassword(password)) {
+router.post('/register', authLimiter, async (req, res) => {
+  const parseResult = credentialsSchema.safeParse(req.body);
+  if (!parseResult.success) {
     return res.status(400).json({ message: 'Invalid email or password. Password must be at least 8 characters.' });
   }
+  const { email, password } = parseResult.data;
 
   if (dblessTestMode) {
     if (findUserByEmail(email)) {
@@ -57,12 +66,12 @@ router.post('/register', async (req, res) => {
   res.status(201).json({ token, user: { email: user.email, id: user._id } });
 });
 
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!validateEmail(email) || !validatePassword(password)) {
+router.post('/login', authLimiter, async (req, res) => {
+  const parseResult = credentialsSchema.safeParse(req.body);
+  if (!parseResult.success) {
     return res.status(400).json({ message: 'Invalid email or password.' });
   }
+  const { email, password } = parseResult.data;
 
   if (dblessTestMode) {
     let user = findUserByEmail(email);

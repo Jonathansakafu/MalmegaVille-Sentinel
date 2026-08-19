@@ -2,7 +2,14 @@
 .env
 .env.local
 *.env
+.env.*
 !*.env.example
+!.env.example
+*.pem
+*.pfx
+*.key
+*.p12
+*.crt
 
 # Node
 node_modules/
@@ -29,6 +36,7 @@ windows/install-run-log.txt
 Thumbs.db
 .DS_Store
 
-# Claude local settings
+# Claude local settings (may contain permission entries with sensitive test data)
+.claude/settings.json
 .claude/settings.local.json
 .claude/scheduled_tasks.lock

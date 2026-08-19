@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 import mongoose from 'mongoose';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -16,8 +18,10 @@ import { mongodbUri, dblessTestMode } from './config.js';
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(mongoSanitize());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', deviceRoutes);
