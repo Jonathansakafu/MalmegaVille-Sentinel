@@ -11,18 +11,20 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
 
 function Header({
   userEmail,
+  username,
   activeTab,
   onTabChange,
   onLogout
 }: {
   userEmail: string;
+  username: string;
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
   onLogout: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const displayName = userEmail || 'security operator';
+  const displayName = username || 'security operator';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'S';
 
   useEffect(() => {
@@ -70,6 +72,7 @@ function Header({
               <div className="border-b border-slate-800 px-4 py-3">
                 <p className="text-xs text-slate-400">Signed in as</p>
                 <p className="mt-0.5 truncate text-sm font-semibold text-slate-100">{displayName}</p>
+                {userEmail ? <p className="mt-0.5 truncate text-xs text-slate-500">{userEmail}</p> : null}
               </div>
               <button
                 onClick={() => {

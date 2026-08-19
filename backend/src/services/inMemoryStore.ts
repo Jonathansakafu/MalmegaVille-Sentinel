@@ -5,6 +5,7 @@
 export interface InMemoryUser {
   id: string;
   email: string;
+  username?: string;
   passwordHash: string;
 }
 
@@ -19,9 +20,20 @@ export function findUserById(id: string): InMemoryUser | undefined {
   return users.find((user) => user.id === id);
 }
 
-export function createUser(email: string, passwordHash: string): InMemoryUser {
-  const user: InMemoryUser = { id: String(nextUserId++), email, passwordHash };
+export function findUserByUsername(username: string): InMemoryUser | undefined {
+  return users.find((user) => user.username === username);
+}
+
+export function createUser(email: string, passwordHash: string, username?: string): InMemoryUser {
+  const user: InMemoryUser = { id: String(nextUserId++), email, username, passwordHash };
   users.push(user);
+  return user;
+}
+
+export function updateUsername(id: string, username: string): InMemoryUser | undefined {
+  const user = findUserById(id);
+  if (!user) return undefined;
+  user.username = username;
   return user;
 }
 

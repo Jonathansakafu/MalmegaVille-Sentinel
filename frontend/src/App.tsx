@@ -24,7 +24,8 @@ function formatRelativeTime(fromMs: number, nowMs: number): string {
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [userEmail, setUserEmail] = useState('');
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') ?? '');
+  const [username, setUsername] = useState(() => localStorage.getItem('username') ?? '');
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [devices, setDevices] = useState<Device[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -122,17 +123,28 @@ function App() {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleAuthSuccess = (authToken: string, emailAddress: string) => {
+  const handleAuthSuccess = (authToken: string, emailAddress: string, displayName: string) => {
     localStorage.setItem('token', authToken);
+    localStorage.setItem('userEmail', emailAddress);
+    localStorage.setItem('username', displayName);
     setToken(authToken);
     setUserEmail(emailAddress);
+    setUsername(displayName);
     setMessage('');
+  };
+
+  const handleUsernameChange = (newUsername: string) => {
+    localStorage.setItem('username', newUsername);
+    setUsername(newUsername);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('username');
     setToken(null);
     setUserEmail('');
+    setUsername('');
     setActiveTab('dashboard');
     setMessage('Signed out successfully.');
   };
@@ -144,7 +156,13 @@ function App() {
   return (
     <div className="min-h-screen bg-brand-dark px-4 py-6 text-white sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl space-y-6 sm:space-y-8">
-        <Header userEmail={userEmail} activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} />
+        <Header
+          userEmail={userEmail}
+          username={username}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onLogout={handleLogout}
+        />
 
         {activeTab === 'captures' ? (
           <CapturesSection
@@ -155,7 +173,7 @@ function App() {
             onDeviceFilterChange={setCapturesDeviceFilter}
           />
         ) : activeTab === 'settings' ? (
-          <SettingsPanel token={token} />
+          <SettingsPanel token={token} username={username} onUsernameChange={handleUsernameChange} />
         ) : dashboardLoading ? (
           <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 sm:p-10">
             <Spinner label="Loading dashboard data..." />

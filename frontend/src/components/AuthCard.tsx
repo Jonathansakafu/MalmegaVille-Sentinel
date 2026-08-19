@@ -1,9 +1,10 @@
 import { FormEvent, useState } from 'react';
 import { loginUser, registerUser } from '../api';
 
-function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: string) => void }) {
+function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: string, username: string) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [view, setView] = useState<'login' | 'register'>('login');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -14,8 +15,8 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
     setSubmitting(true);
 
     try {
-      const data = view === 'login' ? await loginUser(email, password) : await registerUser(email, password);
-      onAuthSuccess(data.token, data.user.email);
+      const data = view === 'login' ? await loginUser(email, password) : await registerUser(email, password, username);
+      onAuthSuccess(data.token, data.user.email, data.user.username);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `${view === 'login' ? 'Login' : 'Registration'} failed`);
     } finally {
@@ -68,6 +69,22 @@ function AuthCard({ onAuthSuccess }: { onAuthSuccess: (token: string, email: str
               className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-brand-green"
             />
           </label>
+          {view === 'register' ? (
+            <label className="block text-sm font-medium text-slate-300">
+              Username
+              <input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                type="text"
+                minLength={3}
+                maxLength={24}
+                pattern="[a-zA-Z0-9_.\-]+"
+                required
+                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-brand-green"
+              />
+              <span className="mt-1 block text-xs font-normal text-slate-500">3-24 characters: letters, numbers, dots, dashes, underscores.</span>
+            </label>
+          ) : null}
           <label className="block text-sm font-medium text-slate-300">
             Password
             <input

@@ -3,6 +3,7 @@ type AuthResponse = {
   user: {
     email: string;
     id: string;
+    username: string;
   };
 };
 
@@ -61,11 +62,19 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   });
 }
 
-export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+export async function registerUser(email: string, password: string, username: string): Promise<AuthResponse> {
   return request('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password, username })
+  });
+}
+
+export async function updateUsername(token: string, username: string): Promise<{ username: string }> {
+  return request('/api/auth/username', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ username })
   });
 }
 
