@@ -3,7 +3,10 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { z } from 'zod';
 import { authenticate } from '../middleware/authMiddleware.js';
+import { agentLimiter, dashboardLimiter } from '../middleware/rateLimiters.js';
+import { validateBody } from '../middleware/validate.js';
 import { validateSyncToken } from './syncRoutes.js';
 import Capture from '../models/Capture.js';
 import Device from '../models/Device.js';
@@ -35,6 +38,21 @@ const storage = multer.diskStorage({
 
 const uploadPhoto = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
 const uploadUsbFile = multer({ storage, limits: { fileSize: captureMaxFileBytes } });
+
+const locationSchema = z.object({
+  deviceId: z.string().trim().min(1),
+  triggerEvent: z.enum(['usb_insert', 'login_unlock']).optional(),
+  capturedAtUtc: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  accuracyMeters: z.number().optional()
+});
+
+const usbManifestSchema = z.object({
+  deviceId: z.string().trim().min(1),
+  sessionId: z.string().trim().min(1),
+  entries: z.array(z.unknown())
+});
 
 async function deviceDisplayName(deviceId: string): Promise<string> {
   if (dblessTestMode) {
@@ -88,15 +106,12 @@ async function resolveIpLocation(ip: string): Promise<IpLocationResult | undefin
 // POST /api/captures/location - sync-token authed, called by the desktop agent.
 // Prefers Wi-Fi-based coordinates supplied by the agent; falls back to
 // server-side IP geolocation when the agent couldn't get an OS location fix.
-router.post('/location', async (req, res) => {
+router.post('/location', agentLimiter, validateBody(locationSchema), async (req, res) => {
   if (!validateSyncToken(req)) {
     return res.status(401).json({ message: 'Invalid sync token.' });
   }
 
-  const { deviceId, triggerEvent, capturedAtUtc, latitude, longitude, accuracyMeters } = req.body ?? {};
-  if (typeof deviceId !== 'string' || !deviceId) {
-    return res.status(400).json({ message: 'deviceId is required.' });
-  }
+  const { deviceId, triggerEvent, capturedAtUtc, latitude, longitude, accuracyMeters } = req.body;
 
   const userId = await deviceOwnerUserId(deviceId);
   if (!userId) {
@@ -141,7 +156,7 @@ router.post('/location', async (req, res) => {
 });
 
 // POST /api/captures/photo - sync-token authed, called by the desktop agent
-router.post('/photo', uploadPhoto.single('photo'), async (req, res) => {
+router.post('/photo', agentLimiter, uploadPhoto.single('photo'), async (req, res) => {
   if (!validateSyncToken(req)) {
     return res.status(401).json({ message: 'Invalid sync token.' });
   }
@@ -191,7 +206,7 @@ router.post('/photo', uploadPhoto.single('photo'), async (req, res) => {
 });
 
 // POST /api/captures/usb-file - sync-token authed, called by the Windows service
-router.post('/usb-file', uploadUsbFile.single('file'), async (req, res) => {
+router.post('/usb-file', agentLimiter, uploadUsbFile.single('file'), async (req, res) => {
   if (!validateSyncToken(req)) {
     return res.status(401).json({ message: 'Invalid sync token.' });
   }
@@ -259,24 +274,21 @@ router.post('/usb-file', uploadUsbFile.single('file'), async (req, res) => {
 });
 
 // POST /api/captures/usb-manifest - sync-token authed, bulk-registers files that were skipped client-side
-router.post('/usb-manifest', async (req, res) => {
+router.post('/usb-manifest', agentLimiter, validateBody(usbManifestSchema), async (req, res) => {
   if (!validateSyncToken(req)) {
     return res.status(401).json({ message: 'Invalid sync token.' });
   }
 
   const { deviceId, sessionId, entries } = req.body;
-  if (typeof deviceId !== 'string' || !deviceId || typeof sessionId !== 'string' || !sessionId || !Array.isArray(entries)) {
-    return res.status(400).json({ message: 'deviceId, sessionId, and entries[] are required.' });
-  }
 
   const userId = await deviceOwnerUserId(deviceId);
   if (!userId) {
     return res.status(404).json({ message: 'Unknown device.' });
   }
 
-  const manifestFields = entries
-    .filter((entry) => entry && typeof entry === 'object')
-    .map((entry: any) => ({
+  const manifestFields = (entries as unknown[])
+    .filter((entry: unknown): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+    .map((entry: Record<string, unknown>) => ({
       userId,
       deviceId,
       captureType: 'usb_manifest' as const,
@@ -298,7 +310,7 @@ router.post('/usb-manifest', async (req, res) => {
 });
 
 // GET /api/captures - JWT authed, owner-facing gallery list
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, dashboardLimiter, async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -321,7 +333,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/captures/:id/content - JWT authed, streams the stored file
-router.get('/:id/content', authenticate, async (req, res) => {
+router.get('/:id/content', authenticate, dashboardLimiter, async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });

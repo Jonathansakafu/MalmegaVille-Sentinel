@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { authenticate } from '../middleware/authMiddleware.js';
+import { dashboardLimiter } from '../middleware/rateLimiters.js';
+import { validateBody } from '../middleware/validate.js';
 import Incident from '../models/Incident.js';
 import Device from '../models/Device.js';
 import { notifySecurityEvent } from '../services/alertService.js';
@@ -9,6 +12,16 @@ import { listIncidentsForUser, addIncident, findDeviceByDeviceId } from '../serv
 const router = Router();
 
 router.use(authenticate);
+router.use(dashboardLimiter);
+
+const createIncidentSchema = z.object({
+  deviceId: z.string().trim().min(1),
+  incidentType: z.string().trim().min(1),
+  threatScore: z.number().min(0).max(100),
+  severity: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  details: z.record(z.string(), z.unknown()).optional()
+});
 
 router.get('/', async (req, res) => {
   const userId = req.user?.userId;
@@ -24,22 +37,13 @@ router.get('/', async (req, res) => {
   res.json(incidents);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', validateBody(createIncidentSchema), async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
   const { deviceId, incidentType, threatScore, severity, summary, details } = req.body;
-  if (
-    typeof deviceId !== 'string' ||
-    typeof incidentType !== 'string' ||
-    typeof threatScore !== 'number' ||
-    typeof severity !== 'string' ||
-    typeof summary !== 'string'
-  ) {
-    return res.status(400).json({ message: 'deviceId, incidentType, threatScore, severity, and summary are required and must be valid.' });
-  }
 
   const incidentFields = {
     deviceId,
@@ -48,7 +52,7 @@ router.post('/', async (req, res) => {
     threatScore,
     severity,
     summary,
-    details: typeof details === 'object' && details !== null ? details : {}
+    details: details ?? {}
   };
 
   const incident = dblessTestMode ? addIncident(incidentFields) : await new Incident(incidentFields).save();

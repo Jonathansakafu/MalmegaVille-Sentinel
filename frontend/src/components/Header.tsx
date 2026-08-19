@@ -1,4 +1,5 @@
-import { LayoutDashboard, Images, Settings, LogOut } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { LayoutDashboard, Images, Settings, LogOut, ChevronDown } from 'lucide-react';
 
 export type TabKey = 'dashboard' | 'captures' | 'settings';
 
@@ -12,17 +13,31 @@ function Header({
   userEmail,
   activeTab,
   onTabChange,
-  totalDevices,
-  totalIncidents,
   onLogout
 }: {
   userEmail: string;
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
-  totalDevices: number;
-  totalIncidents: number;
   onLogout: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const displayName = userEmail || 'security operator';
+  const initial = displayName.trim().charAt(0).toUpperCase() || 'S';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   return (
     <header className="rounded-3xl bg-brand-panel p-4 shadow-xl shadow-black/40 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -33,24 +48,42 @@ function Header({
             className="flex-shrink-0 object-contain"
             style={{ width: 'clamp(2.5rem, 12vw, 5rem)', height: 'clamp(2.5rem, 12vw, 5rem)' }}
           />
-          <p className="min-w-0 truncate text-sm text-slate-400 sm:text-base">Welcome back, {userEmail || 'security operator'}.</p>
+          <p className="min-w-0 truncate text-sm text-slate-400 sm:text-base">Welcome back, {displayName}.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-center text-sm text-slate-300 sm:px-4 sm:py-3 sm:text-left">
-            Devices: <span className="font-semibold text-white">{totalDevices}</span>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-center text-sm text-slate-300 sm:px-4 sm:py-3 sm:text-left">
-            Incidents: <span className="font-semibold text-white">{totalIncidents}</span>
-          </div>
+        <div className="relative flex-shrink-0 self-end lg:self-auto" ref={menuRef}>
           <button
-            onClick={onLogout}
-            className="col-span-2 flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-rose-500 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500 hover:text-white sm:col-span-1 sm:py-3"
+            onClick={() => setMenuOpen((open) => !open)}
             type="button"
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            className="flex min-h-[44px] items-center gap-2 rounded-full border border-slate-800 bg-slate-900 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-slate-200 transition hover:border-brand-green/60 hover:text-brand-green"
           >
-            <LogOut size={16} />
-            Logout
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-gradient text-sm font-bold text-black">
+              {initial}
+            </span>
+            <ChevronDown size={14} className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-56 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/50">
+              <div className="border-b border-slate-800 px-4 py-3">
+                <p className="text-xs text-slate-400">Signed in as</p>
+                <p className="mt-0.5 truncate text-sm font-semibold text-slate-100">{displayName}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onLogout();
+                }}
+                type="button"
+                className="flex min-h-[44px] w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/10"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

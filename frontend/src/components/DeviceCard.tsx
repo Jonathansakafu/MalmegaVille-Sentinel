@@ -20,7 +20,7 @@ function DeviceCard({
         <span className="text-sm text-slate-400">{device.operatingSystem}</span>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <StatusBadge label={device.isLost ? 'Lost / Stolen' : 'Safe'} tone={device.isLost ? 'danger' : 'safe'} />
+        <StatusBadge label={device.isLost ? 'Lost / Stolen' : 'Safe'} tone={device.isLost ? 'high' : 'safe'} />
       </div>
       <p className="mt-2 text-sm text-slate-400">Last seen: {new Date(device.lastSeen).toLocaleString()}</p>
       <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">

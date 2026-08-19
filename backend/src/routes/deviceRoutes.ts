@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { authenticate } from '../middleware/authMiddleware.js';
+import { dashboardLimiter } from '../middleware/rateLimiters.js';
+import { validateBody } from '../middleware/validate.js';
 import Device from '../models/Device.js';
 import { dblessTestMode } from '../config.js';
 import { listDevicesForUser, upsertDevice, setDeviceLostStatus } from '../services/inMemoryStore.js';
@@ -7,6 +10,17 @@ import { listDevicesForUser, upsertDevice, setDeviceLostStatus } from '../servic
 const router = Router();
 
 router.use(authenticate);
+router.use(dashboardLimiter);
+
+const createDeviceSchema = z.object({
+  deviceId: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  operatingSystem: z.string().trim().min(1)
+});
+
+const lostStatusSchema = z.object({
+  isLost: z.boolean()
+});
 
 router.get('/', async (req, res) => {
   const userId = req.user?.userId;
@@ -22,16 +36,13 @@ router.get('/', async (req, res) => {
   res.json(devices);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', validateBody(createDeviceSchema), async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
   const { deviceId, name, operatingSystem } = req.body;
-  if (typeof deviceId !== 'string' || typeof name !== 'string' || typeof operatingSystem !== 'string') {
-    return res.status(400).json({ message: 'deviceId, name, and operatingSystem are required.' });
-  }
 
   if (dblessTestMode) {
     const device = upsertDevice({ userId, deviceId, name, operatingSystem });
@@ -60,16 +71,13 @@ router.post('/', async (req, res) => {
   res.status(201).json(device);
 });
 
-router.patch('/:id/lost-status', async (req, res) => {
+router.patch('/:id/lost-status', validateBody(lostStatusSchema), async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
   const { isLost } = req.body;
-  if (typeof isLost !== 'boolean') {
-    return res.status(400).json({ message: 'isLost boolean is required.' });
-  }
 
   if (dblessTestMode) {
     const device = setDeviceLostStatus(req.params.id, userId, isLost);

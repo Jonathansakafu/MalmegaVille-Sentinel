@@ -3,9 +3,13 @@ import SyncEvent from '../models/SyncEvent.js';
 import Device from '../models/Device.js';
 import { syncToken, dblessTestMode } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { agentLimiter } from '../middleware/rateLimiters.js';
 import { findDeviceByDeviceId } from '../services/inMemoryStore.js';
 
 const router = Router();
+const MAX_EVENTS_PER_BATCH = 500;
+
+router.use(agentLimiter);
 
 export function validateSyncToken(req: any) {
   if (!syncToken) {
@@ -22,6 +26,10 @@ router.post('/events', async (req, res) => {
   }
 
   const payload = Array.isArray(req.body) ? req.body : [req.body];
+  if (payload.length > MAX_EVENTS_PER_BATCH) {
+    return res.status(413).json({ message: `A maximum of ${MAX_EVENTS_PER_BATCH} events may be submitted per request.` });
+  }
+
   const events = payload
     .filter((item) => item && typeof item === 'object')
     .map((item) => ({
