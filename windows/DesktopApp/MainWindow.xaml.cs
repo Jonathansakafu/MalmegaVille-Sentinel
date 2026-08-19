@@ -338,6 +338,7 @@ public partial class MainWindow : Window
         var signedIn = _authToken is not null;
 
         AccountStatusText.Text = signedIn ? $"Signed in as {_authEmail}" : "Not signed in.";
+        AccountStatusDot.Fill = (System.Windows.Media.Brush)FindResource(signedIn ? "BrandGreenBrush" : "MutedTextBrush");
         SignInButton.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
         SignOutButton.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
 
