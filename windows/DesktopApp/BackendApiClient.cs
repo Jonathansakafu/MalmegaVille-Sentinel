@@ -21,9 +21,16 @@ public sealed record NotificationTestResult(NotificationChannelResult Email, Not
 
 public sealed record LostStatusResponse(string DeviceId, bool IsLost);
 
-public sealed class BackendApiException : Exception
+public class BackendApiException : Exception
 {
     public BackendApiException(string message) : base(message) { }
+}
+
+// Thrown specifically for a 401 on a JWT-authenticated call, so callers can tell
+// "session token is stale/invalid, sign the user out" apart from a transient failure.
+public sealed class UnauthorizedApiException : BackendApiException
+{
+    public UnauthorizedApiException(string message) : base(message) { }
 }
 
 public sealed class BackendApiClient
@@ -58,10 +65,7 @@ public sealed class BackendApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new BackendApiException(await ExtractErrorAsync(response));
-        }
+        await EnsureSuccessOrThrowAsync(response);
     }
 
     public async Task<bool> CheckLostStatusAsync(string deviceId)
@@ -146,10 +150,7 @@ public sealed class BackendApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new BackendApiException(await ExtractErrorAsync(response));
-        }
+        await EnsureSuccessOrThrowAsync(response);
 
         var result = await response.Content.ReadFromJsonAsync<NotificationSettingsDto>(JsonOptions);
         return result ?? new NotificationSettingsDto("", "", "");
@@ -164,10 +165,7 @@ public sealed class BackendApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new BackendApiException(await ExtractErrorAsync(response));
-        }
+        await EnsureSuccessOrThrowAsync(response);
 
         var result = await response.Content.ReadFromJsonAsync<NotificationSettingsDto>(JsonOptions);
         return result ?? settings;
@@ -179,13 +177,26 @@ public sealed class BackendApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new BackendApiException(await ExtractErrorAsync(response));
-        }
+        await EnsureSuccessOrThrowAsync(response);
 
         var result = await response.Content.ReadFromJsonAsync<NotificationTestResult>(JsonOptions);
         return result ?? new NotificationTestResult(new NotificationChannelResult(false, false, null), new NotificationChannelResult(false, false, null));
+    }
+
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var message = await ExtractErrorAsync(response);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            throw new UnauthorizedApiException(message);
+        }
+
+        throw new BackendApiException(message);
     }
 
     private static async Task<string> ExtractErrorAsync(HttpResponseMessage response)

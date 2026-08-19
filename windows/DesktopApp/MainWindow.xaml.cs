@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
     private readonly BackendApiClient _apiClient = new();
     private string? _authToken;
     private string? _authEmail;
+    private bool _isExiting;
 
     private readonly DispatcherTimer _usbPollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private HashSet<string> _lastRemovableDrives = new();
@@ -118,22 +120,73 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task TryRegisterDeviceAsync()
+    private async Task TryRegisterDeviceAsync(bool showFeedback = false)
     {
         if (_authToken is null)
         {
+            if (showFeedback)
+            {
+                DeviceStatusText.Text = "Sign in first, then register this PC.";
+            }
             return;
+        }
+
+        if (showFeedback)
+        {
+            RegisterDeviceButton.IsEnabled = false;
+            DeviceStatusText.Text = "Registering...";
         }
 
         try
         {
             var deviceId = DeviceIdentity.GetOrCreateDeviceId();
             await _apiClient.RegisterDeviceAsync(_authToken, deviceId, Environment.MachineName, $"Windows {Environment.OSVersion.Version}");
+            if (showFeedback)
+            {
+                DeviceStatusText.Text = $"Registered as \"{Environment.MachineName}\". It'll now show up in Device Inventory on the dashboard.";
+            }
         }
-        catch
+        catch (UnauthorizedApiException)
         {
-            // Device registration failing shouldn't block the rest of the app.
+            // The stored token is stale/invalid for the backend we're actually talking to
+            // (e.g. left over from testing against a different server) - force a clean
+            // re-sign-in rather than silently failing every authenticated call from here on.
+            SignOutDueToInvalidSession();
+            if (showFeedback)
+            {
+                DeviceStatusText.Text = "Your session was invalid, so you've been signed out. Please sign in again and retry.";
+            }
         }
+        catch (Exception ex)
+        {
+            // Best-effort on the silent auto-register path; surfaced only when the user
+            // explicitly clicked the button.
+            if (showFeedback)
+            {
+                DeviceStatusText.Text = $"Registration failed: {ex.Message}";
+            }
+        }
+        finally
+        {
+            if (showFeedback)
+            {
+                RegisterDeviceButton.IsEnabled = true;
+            }
+        }
+    }
+
+    private async void RegisterDevice_Click(object sender, RoutedEventArgs e)
+    {
+        await TryRegisterDeviceAsync(showFeedback: true);
+    }
+
+    private void SignOutDueToInvalidSession()
+    {
+        _authToken = null;
+        _authEmail = null;
+        AuthTokenStore.Clear();
+        UpdateAccountUi();
+        _trayIcon?.ShowBalloonTip(2000, "MalmegaVille Sentinel", "Your session expired or was invalid. Please sign in again.", ToolTipIcon.Warning);
     }
 
     private void InitializeTrayIcon()
@@ -197,8 +250,25 @@ public partial class MainWindow : Window
 
     private void ExitApplication()
     {
+        _isExiting = true;
         _trayIcon?.Dispose();
         Application.Current.Shutdown();
+    }
+
+    // The window's close button (X) would otherwise end the whole process (and with it,
+    // the USB-poll timer and unlock listener that back the lost-device capture feature).
+    // Redirect it to a tray-minimize instead; only the tray menu's "Exit" really quits.
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!_isExiting)
+        {
+            e.Cancel = true;
+            Hide();
+            _trayIcon?.ShowBalloonTip(1000, "MalmegaVille Sentinel", "Still running in the background. Right-click the tray icon to exit.", ToolTipIcon.Info);
+            return;
+        }
+
+        base.OnClosing(e);
     }
 
     private void SyncNow_Click(object sender, RoutedEventArgs e)
@@ -326,6 +396,10 @@ public partial class MainWindow : Window
             TelegramBotTokenBox.Password = settings.TelegramBotToken;
             TelegramChatIdTextBox.Text = settings.TelegramChatId;
             SettingsStatusText.Text = string.Empty;
+        }
+        catch (UnauthorizedApiException)
+        {
+            SignOutDueToInvalidSession();
         }
         catch (Exception ex)
         {

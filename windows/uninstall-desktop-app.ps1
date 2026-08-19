@@ -5,8 +5,9 @@ Get-Process -Name 'MalmegaVille.Sentinel.Desktop' -ErrorAction SilentlyContinue 
 
 $startMenuShortcut = Join-Path -Path ([Environment]::GetFolderPath('StartMenu')) -ChildPath "Programs\$appName.lnk"
 $desktopShortcut = Join-Path -Path ([Environment]::GetFolderPath('Desktop')) -ChildPath "$appName.lnk"
+$startupShortcut = Join-Path -Path ([Environment]::GetFolderPath('Startup')) -ChildPath "$appName.lnk"
 
-foreach ($shortcut in @($startMenuShortcut, $desktopShortcut)) {
+foreach ($shortcut in @($startMenuShortcut, $desktopShortcut, $startupShortcut)) {
     if (Test-Path $shortcut) {
         Remove-Item -Path $shortcut -Force
         Write-Host "Removed shortcut: $shortcut"

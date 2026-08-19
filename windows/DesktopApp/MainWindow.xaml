@@ -66,10 +66,15 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Sync Now" Width="120" Click="SyncNow_Click" Background="{StaticResource BrandGreenBrush}" Foreground="#050805" FontWeight="Bold" />
                         <Button Content="Refresh Queue" Width="120" Margin="8,0,0,0" Click="RefreshQueue_Click" />
                         <TextBlock x:Name="QueueStatusText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{StaticResource MutedTextBrush}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <Button x:Name="RegisterDeviceButton" Content="Register This PC" Width="130" Click="RegisterDevice_Click" />
+                        <TextBlock x:Name="DeviceStatusText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
                     </StackPanel>
 
                     <GroupBox Header="Queued Events" Grid.Row="1">
