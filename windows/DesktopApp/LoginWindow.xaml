@@ -1,7 +1,7 @@
 <Window x:Class="MalmegaVille.Sentinel.Desktop.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sign in - MalmegaVille Sentinel" Height="440" Width="400"
+        Title="Sign in - MalmegaVille Sentinel" Width="400" SizeToContent="Height"
         Background="{StaticResource BackgroundBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Icon="pack://application:,,,/Assets/app.ico">
