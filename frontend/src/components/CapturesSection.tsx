@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Camera, MapPin, FileArchive, Download, X, Navigation } from 'lucide-react';
 import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode } from '../api';
 import StatusBadge from './StatusBadge';
-import RouteMap from './RouteMap';
+import RouteMap, { RouteOption, fetchRouteOptions } from './RouteMap';
 
 // Finds the location capture from the same device closest in time to a given
 // capture, so a photo card can show "captured near <street>" without the
@@ -62,59 +62,105 @@ function bearingCompass(lat1: number, lon1: number, lat2: number, lon2: number):
   return `${directions[Math.round(degrees / 45) % 8]} (${Math.round(degrees)}°)`;
 }
 
-function DirectionFinder({
+// Recalculating routes is a network call, so it's only re-triggered once the
+// live position has moved meaningfully - otherwise every GPS tick (which can
+// jitter by tens of meters even standing still) would hammer the routing API.
+const ROUTE_REFETCH_THRESHOLD_KM = 0.15;
+
+function LiveTracker({
   targetLat,
   targetLon,
-  onOriginFound
+  onOriginChange,
+  onRoutesChange
 }: {
   targetLat: number;
   targetLon: number;
-  onOriginFound: (origin: { lat: number; lon: number }) => void;
+  onOriginChange: (origin: { lat: number; lon: number } | null) => void;
+  onRoutesChange: (routes: RouteOption[]) => void;
 }) {
+  const [tracking, setTracking] = useState(false);
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle');
-  const [result, setResult] = useState<{ distanceKm: number; direction: string } | null>(null);
   const [error, setError] = useState('');
+  const [current, setCurrent] = useState<{ lat: number; lon: number } | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const lastRouteFetchPosRef = useRef<{ lat: number; lon: number } | null>(null);
 
-  const handleLocate = () => {
+  const handlePosition = (position: GeolocationPosition) => {
+    const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+    setCurrent(point);
+    onOriginChange(point);
+    setStatus('idle');
+
+    const last = lastRouteFetchPosRef.current;
+    const moved = !last || haversineDistanceKm(last.lat, last.lon, point.lat, point.lon) > ROUTE_REFETCH_THRESHOLD_KM;
+    if (moved) {
+      lastRouteFetchPosRef.current = point;
+      fetchRouteOptions(point.lat, point.lon, targetLat, targetLon).then(onRoutesChange);
+    }
+  };
+
+  const startTracking = () => {
     if (!navigator.geolocation) {
       setStatus('error');
       setError("This browser doesn't support location.");
       return;
     }
     setStatus('locating');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setResult({
-          distanceKm: haversineDistanceKm(latitude, longitude, targetLat, targetLon),
-          direction: bearingCompass(latitude, longitude, targetLat, targetLon)
-        });
-        onOriginFound({ lat: latitude, lon: longitude });
-        setStatus('idle');
-      },
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      handlePosition,
       (err) => {
         setStatus('error');
         setError(err.code === err.PERMISSION_DENIED ? 'Location permission denied.' : 'Could not get your location.');
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
+    setTracking(true);
   };
+
+  const stopTracking = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setTracking(false);
+    setCurrent(null);
+    lastRouteFetchPosRef.current = null;
+    onOriginChange(null);
+    onRoutesChange([]);
+  };
+
+  // Stop the GPS watch if the modal closes without an explicit "Stop" click.
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
+  }, []);
+
+  const live = current
+    ? {
+        distanceKm: haversineDistanceKm(current.lat, current.lon, targetLat, targetLon),
+        direction: bearingCompass(current.lat, current.lon, targetLat, targetLon)
+      }
+    : null;
 
   return (
     <div className="mt-3">
       <button
-        onClick={handleLocate}
-        disabled={status === 'locating'}
+        onClick={tracking ? stopTracking : startTracking}
+        disabled={status === 'locating' && !tracking}
         type="button"
-        className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-green transition hover:border-brand-green disabled:opacity-50"
+        className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
+          tracking
+            ? 'border-rose-500/60 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+            : 'border-slate-700 bg-slate-900 text-brand-green hover:border-brand-green'
+        }`}
       >
-        <Navigation size={14} />
-        {status === 'locating' ? 'Finding your location…' : 'Show route from my location'}
+        <Navigation size={14} className={tracking ? 'animate-pulse' : ''} />
+        {tracking ? 'Stop live tracking' : status === 'locating' ? 'Finding your location…' : 'Track my location live'}
       </button>
-      {result ? (
+      {live ? (
         <p className="mt-2 text-center text-sm text-slate-200">
-          {result.distanceKm < 1 ? `${Math.round(result.distanceKm * 1000)} m` : `${result.distanceKm.toFixed(1)} km`} away, heading{' '}
-          {result.direction}
+          {live.distanceKm < 1 ? `${Math.round(live.distanceKm * 1000)} m` : `${live.distanceKm.toFixed(1)} km`} away, heading {live.direction}
         </p>
       ) : null}
       {status === 'error' ? <p className="mt-2 text-center text-sm text-rose-400">{error}</p> : null}
@@ -128,6 +174,8 @@ function LocationSummary({ location, token }: { location: Capture; token: string
   const lon = meta.longitude as number | undefined;
   const [place, setPlace] = useState<ReverseGeocodeResult | null>(null);
   const [origin, setOrigin] = useState<{ lat: number; lon: number } | null>(null);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
 
   useEffect(() => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return;
@@ -135,6 +183,11 @@ function LocationSummary({ location, token }: { location: Capture; token: string
       .then(setPlace)
       .catch(() => setPlace(null));
   }, [lat, lon, token]);
+
+  const handleRoutesChange = (nextRoutes: RouteOption[]) => {
+    setRoutes(nextRoutes);
+    setSelectedRouteIndex(0);
+  };
 
   if (typeof lat !== 'number' || typeof lon !== 'number') {
     return <p className="text-sm text-slate-500">Location unavailable for this attempt.</p>;
@@ -148,9 +201,39 @@ function LocationSummary({ location, token }: { location: Capture; token: string
         {meta.source ? ` · ${String(meta.source) === 'wifi' ? 'Wi-Fi positioning' : 'Approximate (IP-based)'}` : ''}
       </p>
       <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800">
-        <RouteMap targetLat={lat} targetLon={lon} origin={origin} />
+        <RouteMap
+          targetLat={lat}
+          targetLon={lon}
+          origin={origin}
+          routes={routes}
+          selectedRouteIndex={selectedRouteIndex}
+          onSelectRoute={setSelectedRouteIndex}
+        />
       </div>
-      <DirectionFinder targetLat={lat} targetLon={lon} onOriginFound={setOrigin} />
+
+      {routes.length > 1 ? (
+        <div className="mt-3 space-y-2">
+          {routes.map((route, index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedRouteIndex(index)}
+              type="button"
+              className={`flex w-full items-center justify-between rounded-2xl border px-4 py-2.5 text-sm transition ${
+                index === selectedRouteIndex
+                  ? 'border-brand-green bg-brand-green/10 text-brand-green'
+                  : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+              }`}
+            >
+              <span>Route {index + 1}</span>
+              <span>
+                {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMin)} min
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <LiveTracker targetLat={lat} targetLon={lon} onOriginChange={setOrigin} onRoutesChange={handleRoutesChange} />
     </div>
   );
 }

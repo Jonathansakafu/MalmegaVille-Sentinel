@@ -28,33 +28,56 @@ const originIcon = L.icon({
   className: 'hue-rotate-[220deg]'
 });
 
-async function fetchRoutePath(originLat: number, originLon: number, targetLat: number, targetLon: number): Promise<[number, number][] | null> {
+export type RouteOption = {
+  points: [number, number][];
+  distanceKm: number;
+  durationMin: number;
+};
+
+export async function fetchRouteOptions(
+  originLat: number,
+  originLon: number,
+  targetLat: number,
+  targetLon: number
+): Promise<RouteOption[]> {
   try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${originLon},${originLat};${targetLon},${targetLat}?overview=full&geometries=geojson`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${originLon},${originLat};${targetLon},${targetLat}?overview=full&geometries=geojson&alternatives=true`;
     const response = await fetch(url);
-    if (!response.ok) return null;
+    if (!response.ok) return [];
     const body = await response.json();
-    const coords: [number, number][] | undefined = body?.routes?.[0]?.geometry?.coordinates;
-    if (!coords || coords.length === 0) return null;
-    // GeoJSON is [lon, lat]; Leaflet wants [lat, lon].
-    return coords.map(([lon, lat]) => [lat, lon]);
+    const routes: any[] = body?.routes ?? [];
+    return routes.map((route) => ({
+      // GeoJSON is [lon, lat]; Leaflet wants [lat, lon].
+      points: (route.geometry?.coordinates ?? []).map(([lon, lat]: [number, number]) => [lat, lon] as [number, number]),
+      distanceKm: (route.distance ?? 0) / 1000,
+      durationMin: (route.duration ?? 0) / 60
+    }));
   } catch {
-    return null;
+    return [];
   }
 }
 
 function RouteMap({
   targetLat,
   targetLon,
-  origin
+  origin,
+  routes,
+  selectedRouteIndex,
+  onSelectRoute
 }: {
   targetLat: number;
   targetLon: number;
   origin: { lat: number; lon: number } | null;
+  routes: RouteOption[];
+  selectedRouteIndex: number;
+  onSelectRoute: (index: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const originMarkerRef = useRef<L.Marker | null>(null);
+  const routeLinesRef = useRef<L.Polyline[]>([]);
+  const onSelectRouteRef = useRef(onSelectRoute);
+  onSelectRouteRef.current = onSelectRoute;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -72,48 +95,56 @@ function RouteMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Moves the origin marker on every position update without re-fetching
+  // routes or re-fitting the view, so live tracking feels smooth rather than
+  // jumpy - route redraw/fit only happens when `routes` itself changes.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    routeLayerRef.current?.remove();
-    routeLayerRef.current = null;
-
     if (!origin) {
-      map.setView([targetLat, targetLon], 13);
+      originMarkerRef.current?.remove();
+      originMarkerRef.current = null;
       return;
     }
 
-    let cancelled = false;
-    const layerGroup = L.layerGroup().addTo(map);
-    routeLayerRef.current = layerGroup;
+    if (originMarkerRef.current) {
+      originMarkerRef.current.setLatLng([origin.lat, origin.lon]);
+    } else {
+      originMarkerRef.current = L.marker([origin.lat, origin.lon], { icon: originIcon }).addTo(map).bindPopup('You are here');
+    }
+  }, [origin]);
 
-    L.marker([origin.lat, origin.lon], { icon: originIcon }).addTo(layerGroup).bindPopup('You are here');
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    routeLinesRef.current.forEach((line) => line.remove());
+    routeLinesRef.current = [];
+
+    if (routes.length === 0 || !origin) return;
+
+    routes.forEach((route, index) => {
+      const isSelected = index === selectedRouteIndex;
+      const line = L.polyline(route.points, {
+        color: isSelected ? '#7ed957' : '#64748b',
+        weight: isSelected ? 5 : 3,
+        opacity: isSelected ? 0.9 : 0.5,
+        dashArray: route.points.length === 0 ? '8 8' : undefined
+      }).addTo(map);
+      line.on('click', () => onSelectRouteRef.current(index));
+      if (!isSelected) line.bringToBack();
+      routeLinesRef.current.push(line);
+    });
 
     const bounds = L.latLngBounds([
       [targetLat, targetLon],
       [origin.lat, origin.lon]
     ]);
-
-    fetchRoutePath(origin.lat, origin.lon, targetLat, targetLon).then((path) => {
-      if (cancelled || !mapRef.current) return;
-      const points = path ?? [
-        [origin.lat, origin.lon],
-        [targetLat, targetLon]
-      ];
-      L.polyline(points, {
-        color: '#7ed957',
-        weight: 4,
-        opacity: 0.85,
-        dashArray: path ? undefined : '8 8'
-      }).addTo(layerGroup);
-      map.fitBounds(bounds, { padding: [32, 32] });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [origin, targetLat, targetLon]);
+    map.fitBounds(bounds, { padding: [32, 32] });
+    // Only re-fit when the route set itself changes, not on every live position tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes, selectedRouteIndex]);
 
   return <div ref={containerRef} className="h-64 w-full" />;
 }
