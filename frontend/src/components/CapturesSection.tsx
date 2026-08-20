@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Camera, MapPin, FileArchive, Download, X, Navigation } from 'lucide-react';
 import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode } from '../api';
 import StatusBadge from './StatusBadge';
+import RouteMap from './RouteMap';
 
 // Finds the location capture from the same device closest in time to a given
 // capture, so a photo card can show "captured near <street>" without the
@@ -37,12 +38,6 @@ function groupFilesBySession(files: Capture[]): { sessionId: string; deviceId: s
     .sort((a, b) => new Date(b.capturedAtUtc).getTime() - new Date(a.capturedAtUtc).getTime());
 }
 
-function embeddedMapUrl(lat: number, lon: number): string {
-  const delta = 0.01;
-  const bbox = `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
-}
-
 // Distance + compass direction from the viewer's current position to the
 // capture, computed entirely client-side (Haversine + initial bearing) so no
 // Google Maps API key (or leaving the app) is needed for "how far and which
@@ -67,7 +62,15 @@ function bearingCompass(lat1: number, lon1: number, lat2: number, lon2: number):
   return `${directions[Math.round(degrees / 45) % 8]} (${Math.round(degrees)}°)`;
 }
 
-function DirectionFinder({ targetLat, targetLon }: { targetLat: number; targetLon: number }) {
+function DirectionFinder({
+  targetLat,
+  targetLon,
+  onOriginFound
+}: {
+  targetLat: number;
+  targetLon: number;
+  onOriginFound: (origin: { lat: number; lon: number }) => void;
+}) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle');
   const [result, setResult] = useState<{ distanceKm: number; direction: string } | null>(null);
   const [error, setError] = useState('');
@@ -86,6 +89,7 @@ function DirectionFinder({ targetLat, targetLon }: { targetLat: number; targetLo
           distanceKm: haversineDistanceKm(latitude, longitude, targetLat, targetLon),
           direction: bearingCompass(latitude, longitude, targetLat, targetLon)
         });
+        onOriginFound({ lat: latitude, lon: longitude });
         setStatus('idle');
       },
       (err) => {
@@ -105,7 +109,7 @@ function DirectionFinder({ targetLat, targetLon }: { targetLat: number; targetLo
         className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-green transition hover:border-brand-green disabled:opacity-50"
       >
         <Navigation size={14} />
-        {status === 'locating' ? 'Finding your location…' : 'Distance & direction from me'}
+        {status === 'locating' ? 'Finding your location…' : 'Show route from my location'}
       </button>
       {result ? (
         <p className="mt-2 text-center text-sm text-slate-200">
@@ -123,6 +127,7 @@ function LocationSummary({ location, token }: { location: Capture; token: string
   const lat = meta.latitude as number | undefined;
   const lon = meta.longitude as number | undefined;
   const [place, setPlace] = useState<ReverseGeocodeResult | null>(null);
+  const [origin, setOrigin] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return;
@@ -143,14 +148,9 @@ function LocationSummary({ location, token }: { location: Capture; token: string
         {meta.source ? ` · ${String(meta.source) === 'wifi' ? 'Wi-Fi positioning' : 'Approximate (IP-based)'}` : ''}
       </p>
       <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800">
-        <iframe
-          title="Capture location"
-          src={embeddedMapUrl(lat, lon)}
-          className="h-56 w-full"
-          loading="lazy"
-        />
+        <RouteMap targetLat={lat} targetLon={lon} origin={origin} />
       </div>
-      <DirectionFinder targetLat={lat} targetLon={lon} />
+      <DirectionFinder targetLat={lat} targetLon={lon} onOriginFound={setOrigin} />
     </div>
   );
 }

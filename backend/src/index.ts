@@ -25,15 +25,20 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        // Default has no frame-src, which falls back to default-src 'self' -
-        // that silently blocked the embedded OpenStreetMap iframe on the
-        // capture detail view (no console error, it just rendered blank).
+        // Default has no frame-src, which falls back to default-src 'self'.
+        // No longer used for the map itself (that's a real embedded Leaflet
+        // map now, not an iframe), kept in case anything else ever needs it.
         'frame-src': ["'self'", 'https://www.openstreetmap.org'],
-        // Default img-src is 'self' data: - missing blob:, which is what
-        // URL.createObjectURL() produces for the fetched capture photos.
-        // Same silent-failure pattern: no error, just a broken-image icon
-        // (with the alt text visible) instead of the actual photo.
-        'img-src': ["'self'", 'data:', 'blob:']
+        // Default img-src is 'self' data: - missing blob: (what
+        // URL.createObjectURL() produces for fetched capture photos) and the
+        // OpenStreetMap tile subdomains the Leaflet map's tiles load from.
+        // Same silent-failure pattern each time: no console error, the
+        // resource just doesn't render.
+        'img-src': ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+        // No explicit connect-src previously meant it fell back to
+        // default-src 'self', which would have silently blocked the
+        // client-side fetch() to OSRM's routing API for the route line.
+        'connect-src': ["'self'", 'https://router.project-osrm.org']
       }
     }
   })
