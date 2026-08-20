@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Camera, MapPin, FileArchive, Download, X } from 'lucide-react';
+import { Camera, MapPin, FileArchive, Download, X, Navigation } from 'lucide-react';
 import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode } from '../api';
 import StatusBadge from './StatusBadge';
 
@@ -17,10 +17,105 @@ function findNearestLocation(target: Capture, allCaptures: Capture[]): Capture |
     }, undefined)?.capture;
 }
 
+// Groups usb_file/usb_manifest captures by their sessionId (one per physical
+// USB drive insertion), sorted newest session first, so files from different
+// plug-ins never appear mixed together in one flat list.
+function groupFilesBySession(files: Capture[]): { sessionId: string; deviceId: string; capturedAtUtc: string; files: Capture[] }[] {
+  const groups = new Map<string, Capture[]>();
+  for (const file of files) {
+    const key = file.sessionId ?? `${file.deviceId}-${file._id ?? file.id}`;
+    const existing = groups.get(key);
+    if (existing) existing.push(file);
+    else groups.set(key, [file]);
+  }
+
+  return Array.from(groups.entries())
+    .map(([sessionId, groupFiles]) => {
+      const earliest = groupFiles.reduce((min, f) => (f.capturedAtUtc < min ? f.capturedAtUtc : min), groupFiles[0].capturedAtUtc);
+      return { sessionId, deviceId: groupFiles[0].deviceId, capturedAtUtc: earliest, files: groupFiles };
+    })
+    .sort((a, b) => new Date(b.capturedAtUtc).getTime() - new Date(a.capturedAtUtc).getTime());
+}
+
 function embeddedMapUrl(lat: number, lon: number): string {
   const delta = 0.01;
   const bbox = `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`;
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+}
+
+// Distance + compass direction from the viewer's current position to the
+// capture, computed entirely client-side (Haversine + initial bearing) so no
+// Google Maps API key (or leaving the app) is needed for "how far and which
+// way" - the actual thing being asked for, versus turn-by-turn navigation.
+function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function bearingCompass(lat1: number, lon1: number, lat2: number, lon2: number): string {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  const degrees = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+  return `${directions[Math.round(degrees / 45) % 8]} (${Math.round(degrees)}°)`;
+}
+
+function DirectionFinder({ targetLat, targetLon }: { targetLat: number; targetLon: number }) {
+  const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle');
+  const [result, setResult] = useState<{ distanceKm: number; direction: string } | null>(null);
+  const [error, setError] = useState('');
+
+  const handleLocate = () => {
+    if (!navigator.geolocation) {
+      setStatus('error');
+      setError("This browser doesn't support location.");
+      return;
+    }
+    setStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setResult({
+          distanceKm: haversineDistanceKm(latitude, longitude, targetLat, targetLon),
+          direction: bearingCompass(latitude, longitude, targetLat, targetLon)
+        });
+        setStatus('idle');
+      },
+      (err) => {
+        setStatus('error');
+        setError(err.code === err.PERMISSION_DENIED ? 'Location permission denied.' : 'Could not get your location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  return (
+    <div className="mt-3">
+      <button
+        onClick={handleLocate}
+        disabled={status === 'locating'}
+        type="button"
+        className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-green transition hover:border-brand-green disabled:opacity-50"
+      >
+        <Navigation size={14} />
+        {status === 'locating' ? 'Finding your location…' : 'Distance & direction from me'}
+      </button>
+      {result ? (
+        <p className="mt-2 text-center text-sm text-slate-200">
+          {result.distanceKm < 1 ? `${Math.round(result.distanceKm * 1000)} m` : `${result.distanceKm.toFixed(1)} km`} away, heading{' '}
+          {result.direction}
+        </p>
+      ) : null}
+      {status === 'error' ? <p className="mt-2 text-center text-sm text-rose-400">{error}</p> : null}
+    </div>
+  );
 }
 
 function LocationSummary({ location, token }: { location: Capture; token: string }) {
@@ -55,6 +150,7 @@ function LocationSummary({ location, token }: { location: Capture; token: string
           loading="lazy"
         />
       </div>
+      <DirectionFinder targetLat={lat} targetLon={lon} />
     </div>
   );
 }
@@ -233,54 +329,69 @@ function CapturesSection({
             <FileArchive size={18} className="text-brand-green" />
             USB Files
           </h3>
-          {/* Card layout below sm - a horizontally-scrolling table is a poor touch-UX pattern on phones. */}
-          <div className="mt-4 space-y-3 sm:hidden">
-            {files.map((file) => (
-              <div key={file._id ?? file.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm">
-                <p className="break-all font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
-                {file.originalPath ? <p className="mt-1 break-all text-xs text-slate-400">{file.originalPath}</p> : null}
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs text-slate-400">
-                    {file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'} ·{' '}
-                    {file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}
+          <p className="mt-1 text-xs text-slate-500">Grouped by USB drive insertion - each group is one plug-in session, not mixed together.</p>
+
+          <div className="mt-4 space-y-5">
+            {groupFilesBySession(files).map((group) => (
+              <div key={group.sessionId} className="rounded-2xl border border-slate-800 p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <span className="text-sm font-semibold text-slate-200">{new Date(group.capturedAtUtc).toLocaleString()}</span>
+                  <span className="text-xs text-slate-500">
+                    {group.files.length} file{group.files.length === 1 ? '' : 's'} · {group.deviceId}
                   </span>
-                  {!file.skipped && (file._id ?? file.id) ? (
-                    <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
-                  ) : null}
+                </div>
+
+                {/* Card layout below sm - a horizontally-scrolling table is a poor touch-UX pattern on phones. */}
+                <div className="mt-3 space-y-3 sm:hidden">
+                  {group.files.map((file) => (
+                    <div key={file._id ?? file.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm">
+                      <p className="break-all font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
+                      {file.originalPath ? <p className="mt-1 break-all text-xs text-slate-400">{file.originalPath}</p> : null}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs text-slate-400">
+                          {file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'} ·{' '}
+                          {file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}
+                        </span>
+                        {!file.skipped && (file._id ?? file.id) ? (
+                          <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[640px] text-left text-sm text-slate-300">
+                    <thead>
+                      <tr className="text-slate-400">
+                        <th className="pb-2 pr-4">File</th>
+                        <th className="pb-2 pr-4">Path</th>
+                        <th className="pb-2 pr-4">Size</th>
+                        <th className="pb-2 pr-4">Status</th>
+                        <th className="pb-2">Content</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.files.map((file) => (
+                        <tr key={file._id ?? file.id} className="border-t border-slate-800">
+                          <td className="py-2 pr-4">{file.originalFileName ?? 'Unknown'}</td>
+                          <td className="py-2 pr-4 text-slate-400">{file.originalPath ?? '—'}</td>
+                          <td className="py-2 pr-4">{file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'}</td>
+                          <td className="py-2 pr-4">{file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}</td>
+                          <td className="py-2">
+                            {!file.skipped && (file._id ?? file.id) ? (
+                              <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="mt-4 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[640px] text-left text-sm text-slate-300">
-              <thead>
-                <tr className="text-slate-400">
-                  <th className="pb-2 pr-4">File</th>
-                  <th className="pb-2 pr-4">Path</th>
-                  <th className="pb-2 pr-4">Size</th>
-                  <th className="pb-2 pr-4">Status</th>
-                  <th className="pb-2">Content</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file) => (
-                  <tr key={file._id ?? file.id} className="border-t border-slate-800">
-                    <td className="py-2 pr-4">{file.originalFileName ?? 'Unknown'}</td>
-                    <td className="py-2 pr-4 text-slate-400">{file.originalPath ?? '—'}</td>
-                    <td className="py-2 pr-4">{file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'}</td>
-                    <td className="py-2 pr-4">{file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}</td>
-                    <td className="py-2">
-                      {!file.skipped && (file._id ?? file.id) ? (
-                        <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       ) : null}

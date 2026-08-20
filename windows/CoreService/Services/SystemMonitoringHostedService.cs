@@ -21,6 +21,17 @@ public sealed class SystemMonitoringHostedService : BackgroundService
     private bool _usbWatchersInitialized;
     private readonly object _watcherLock = new();
 
+    // A single physical USB stick insertion legitimately fires multiple
+    // Win32_USBControllerDevice creation events - one per PnP tree node
+    // (the device itself, its storage-class interface, the disk drive, ...).
+    // Without this, one plug-in produced 2-3 separate "USB Device Connected"
+    // alerts/records. Collapses events of the same type within this window
+    // into a single one.
+    private static readonly TimeSpan UsbEventDebounceWindow = TimeSpan.FromSeconds(3);
+    private DateTime _lastUsbArrivalUtc = DateTime.MinValue;
+    private DateTime _lastUsbRemovalUtc = DateTime.MinValue;
+    private readonly object _usbDebounceLock = new();
+
     public SystemMonitoringHostedService(
         ILogger<SystemMonitoringHostedService> logger,
         EncryptedEventStore eventStore,
@@ -184,6 +195,17 @@ public sealed class SystemMonitoringHostedService : BackgroundService
 
     private void HandleUsbEvent(EventArrivedEventArgs eventArgs, string eventType, string description)
     {
+        lock (_usbDebounceLock)
+        {
+            var now = DateTime.UtcNow;
+            ref var lastUtc = ref (eventType == "USB Device Connected" ? ref _lastUsbArrivalUtc : ref _lastUsbRemovalUtc);
+            if (now - lastUtc < UsbEventDebounceWindow)
+            {
+                return;
+            }
+            lastUtc = now;
+        }
+
         var targetInstance = eventArgs.NewEvent? ["TargetInstance"] as ManagementBaseObject;
         var usbDeviceName = GetUsbDeviceName(targetInstance);
         var message = usbDeviceName != null
