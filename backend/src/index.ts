@@ -20,7 +20,19 @@ import { mongodbUri, dblessTestMode } from './config.js';
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Default CSP has no frame-src, which falls back to default-src 'self' -
+    // that silently blocks the embedded OpenStreetMap iframe used on the
+    // capture detail view (no console error, it just renders blank).
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'frame-src': ["'self'", 'https://www.openstreetmap.org']
+      }
+    }
+  })
+);
 app.use(cors());
 app.use(express.json());
 app.use(mongoSanitize());
