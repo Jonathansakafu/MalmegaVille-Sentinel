@@ -22,13 +22,18 @@ const port = Number(process.env.PORT ?? 4000);
 
 app.use(
   helmet({
-    // Default CSP has no frame-src, which falls back to default-src 'self' -
-    // that silently blocks the embedded OpenStreetMap iframe used on the
-    // capture detail view (no console error, it just renders blank).
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        'frame-src': ["'self'", 'https://www.openstreetmap.org']
+        // Default has no frame-src, which falls back to default-src 'self' -
+        // that silently blocked the embedded OpenStreetMap iframe on the
+        // capture detail view (no console error, it just rendered blank).
+        'frame-src': ["'self'", 'https://www.openstreetmap.org'],
+        // Default img-src is 'self' data: - missing blob:, which is what
+        // URL.createObjectURL() produces for the fetched capture photos.
+        // Same silent-failure pattern: no error, just a broken-image icon
+        // (with the alt text visible) instead of the actual photo.
+        'img-src': ["'self'", 'data:', 'blob:']
       }
     }
   })
