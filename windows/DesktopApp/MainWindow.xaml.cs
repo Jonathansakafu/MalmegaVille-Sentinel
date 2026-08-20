@@ -29,6 +29,7 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _usbPollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private HashSet<string> _lastRemovableDrives = new();
+    private bool _captureInProgress;
 
     public MainWindow()
     {
@@ -62,12 +63,19 @@ public partial class MainWindow : Window
             .Select(d => d.Name)
             .ToHashSet();
 
-        if (current.Except(_lastRemovableDrives).Any())
+        // Updated before the (potentially multi-second) capture runs, not after - the
+        // timer keeps ticking every 3s regardless of whether the previous tick's async
+        // handler has finished, so leaving this update until after the await let the
+        // same still-inserted drive look "new" again on the next tick, firing a second
+        // overlapping capture that opened the camera while the first one still had it,
+        // producing degraded/black frames from at least one of them.
+        var newDrives = current.Except(_lastRemovableDrives).Any();
+        _lastRemovableDrives = current;
+
+        if (newDrives)
         {
             await TryCaptureAsync("usb_insert");
         }
-
-        _lastRemovableDrives = current;
     }
 
     // Silently checks whether this device has been flagged lost/stolen and, if so,
@@ -77,46 +85,61 @@ public partial class MainWindow : Window
     // regardless of who is currently signed into the dashboard, if anyone.
     private async Task TryCaptureAsync(string triggerEvent)
     {
-        var deviceId = DeviceIdentity.GetOrCreateDeviceId();
+        // Guards against the unlock and USB-poll triggers overlapping (or the USB poll
+        // firing again mid-capture) and opening the camera device twice concurrently.
+        if (_captureInProgress)
+        {
+            return;
+        }
+        _captureInProgress = true;
 
-        bool isLost;
         try
         {
-            isLost = await _apiClient.CheckLostStatusAsync(deviceId);
-        }
-        catch
-        {
-            return;
-        }
+            var deviceId = DeviceIdentity.GetOrCreateDeviceId();
 
-        if (!isLost)
-        {
-            return;
-        }
-
-        var capturedAt = DateTime.UtcNow;
-
-        var jpeg = await Task.Run(WebcamCapture.CaptureSingleFrameJpeg);
-        if (jpeg is not null)
-        {
+            bool isLost;
             try
             {
-                await _apiClient.UploadCapturePhotoAsync(deviceId, triggerEvent, capturedAt, jpeg);
+                isLost = await _apiClient.CheckLostStatusAsync(deviceId);
             }
             catch
             {
-                // Best effort - no local retry queue for photos, the next trigger will produce a fresh one.
+                return;
+            }
+
+            if (!isLost)
+            {
+                return;
+            }
+
+            var capturedAt = DateTime.UtcNow;
+
+            var jpeg = await Task.Run(WebcamCapture.CaptureSingleFrameJpeg);
+            if (jpeg is not null)
+            {
+                try
+                {
+                    await _apiClient.UploadCapturePhotoAsync(deviceId, triggerEvent, capturedAt, jpeg);
+                }
+                catch
+                {
+                    // Best effort - no local retry queue for photos, the next trigger will produce a fresh one.
+                }
+            }
+
+            try
+            {
+                var locationFix = await LocationCapture.TryGetWifiLocationAsync();
+                await _apiClient.UploadCaptureLocationAsync(deviceId, triggerEvent, capturedAt, locationFix);
+            }
+            catch
+            {
+                // Best effort - the backend still has an IP-based fallback path for the next attempt.
             }
         }
-
-        try
+        finally
         {
-            var locationFix = await LocationCapture.TryGetWifiLocationAsync();
-            await _apiClient.UploadCaptureLocationAsync(deviceId, triggerEvent, capturedAt, locationFix);
-        }
-        catch
-        {
-            // Best effort - the backend still has an IP-based fallback path for the next attempt.
+            _captureInProgress = false;
         }
     }
 
