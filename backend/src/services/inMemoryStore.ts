@@ -37,6 +37,13 @@ export function updateUsername(id: string, username: string): InMemoryUser | und
   return user;
 }
 
+export function updatePasswordHash(id: string, passwordHash: string): InMemoryUser | undefined {
+  const user = findUserById(id);
+  if (!user) return undefined;
+  user.passwordHash = passwordHash;
+  return user;
+}
+
 export interface InMemoryNotificationSettings {
   alertEmailRecipient: string;
   telegramBotToken: string;

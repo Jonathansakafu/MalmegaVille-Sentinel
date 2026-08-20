@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Send, Save, User, Usb, ShieldCheck, Trash2, Check } from 'lucide-react';
+import { Mail, Send, Save, User, Usb, ShieldCheck, Trash2, Check, KeyRound } from 'lucide-react';
 import {
   NotificationSettings,
   NotificationTestResult,
@@ -9,6 +9,7 @@ import {
   saveNotificationSettings,
   sendTestAlert,
   updateUsername,
+  changePassword,
   fetchTrustedUsbDevices,
   addTrustedUsbDevice,
   removeTrustedUsbDevice,
@@ -72,6 +73,95 @@ function AccountSettings({ token, username, onUsernameChange }: { token: string;
         >
           <Save size={16} />
           Save Username
+        </button>
+
+        {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function ChangePassword({ token }: { token: string }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('');
+
+  const canSubmit = currentPassword.length > 0 && newPassword.length >= 8 && newPassword === confirmPassword;
+
+  const handleSave = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
+    setStatus('');
+    try {
+      await changePassword(token, currentPassword, newPassword);
+      setStatus('Password updated.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to update password.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        <KeyRound size={18} className="text-brand-green" />
+        Change Password
+      </h2>
+      <p className="mt-2 text-sm text-slate-400">Applies to both the web dashboard and the desktop app sign-in.</p>
+
+      <div className="mt-6 max-w-lg space-y-4">
+        <label className="block text-sm font-medium text-slate-300">
+          Current password
+          <input
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            type="password"
+            autoComplete="current-password"
+            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-slate-300">
+          New password
+          <input
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            type="password"
+            minLength={8}
+            autoComplete="new-password"
+            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+          />
+          <span className="mt-1 block text-xs font-normal text-slate-500">At least 8 characters.</span>
+        </label>
+
+        <label className="block text-sm font-medium text-slate-300">
+          Confirm new password
+          <input
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            type="password"
+            autoComplete="new-password"
+            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+          />
+          {confirmPassword && confirmPassword !== newPassword ? (
+            <span className="mt-1 block text-xs font-normal text-rose-400">Passwords don't match.</span>
+          ) : null}
+        </label>
+
+        <button
+          onClick={handleSave}
+          disabled={saving || !canSubmit}
+          type="button"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+        >
+          <KeyRound size={16} />
+          Update Password
         </button>
 
         {status ? <p className="text-sm text-slate-300">{status}</p> : null}
@@ -313,6 +403,8 @@ function SettingsPanel({
   return (
     <div className="space-y-6">
       <AccountSettings token={token} username={username} onUsernameChange={onUsernameChange} />
+
+      <ChangePassword token={token} />
 
       <KnownUsbDevices token={token} />
 

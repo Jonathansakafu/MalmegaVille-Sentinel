@@ -40,3 +40,8 @@ export const ipGeolocationEnabled = process.env.IP_GEOLOCATION_ENABLED !== 'fals
 // can't get a Wi-Fi based fix. Sends the device's public IP to this
 // third-party service - documented in .env.example so it's an informed default.
 export const ipGeolocationUrl = process.env.IP_GEOLOCATION_URL ?? 'http://ip-api.com/json';
+// Free reverse-geocoding (coordinates -> nearest street/place name) for the
+// dashboard's capture detail view. Nominatim's usage policy requires a valid
+// identifying User-Agent, which is why this is proxied server-side rather
+// than called directly from the browser.
+export const nominatimUrl = process.env.NOMINATIM_URL ?? 'https://nominatim.openstreetmap.org/reverse';

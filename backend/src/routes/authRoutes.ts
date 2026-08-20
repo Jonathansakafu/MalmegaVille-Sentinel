@@ -8,7 +8,14 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import { authLimiter, dashboardLimiter } from '../middleware/rateLimiters.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifySecurityEvent } from '../services/alertService.js';
-import { createUser, findUserByEmail, findUserById, findUserByUsername, updateUsername } from '../services/inMemoryStore.js';
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  findUserByUsername,
+  updateUsername,
+  updatePasswordHash
+} from '../services/inMemoryStore.js';
 
 const router = Router();
 
@@ -30,6 +37,11 @@ const registerSchema = credentialsSchema.extend({
 
 const updateUsernameSchema = z.object({
   username: usernameSchema
+});
+
+const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8)
 });
 
 // Fallback shown for accounts created before usernames existed, until they set a real one.
@@ -163,6 +175,55 @@ router.patch('/username', authenticate, dashboardLimiter, validateBody(updateUse
   }
 
   res.json({ username: user.username });
+});
+
+router.patch('/password', authenticate, dashboardLimiter, validateBody(updatePasswordSchema), async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (dblessTestMode) {
+    const user = findUserById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) {
+      return res.status(401).json({ message: 'Current password is incorrect.' });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    updatePasswordHash(userId, passwordHash);
+    return res.json({ message: 'Password updated.' });
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
+  }
+
+  const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!matches) {
+    return res.status(401).json({ message: 'Current password is incorrect.' });
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  await user.save();
+
+  notifySecurityEvent({
+    deviceName: user.username || user.email,
+    eventType: 'Password Changed',
+    timestampUtc: new Date(),
+    severity: 'High',
+    description: `The password for ${user.username || user.email} was changed.`,
+    recommendedAction: 'If you did not make this change, your account may be compromised - contact yourself immediately and rotate credentials.'
+  }).catch((error) => {
+    console.error('Password change notification failed', error);
+  });
+
+  res.json({ message: 'Password updated.' });
 });
 
 router.post('/logout', authenticate, async (req, res) => {

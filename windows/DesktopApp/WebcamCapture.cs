@@ -1,3 +1,4 @@
+using System.Threading;
 using OpenCvSharp;
 
 namespace MalmegaVille.Sentinel.Desktop;
@@ -19,12 +20,26 @@ public static class WebcamCapture
                 return null;
             }
 
+            // Auto-exposure/auto-white-balance convergence takes real time, not just a
+            // handful of frames - 3 discarded frames (the previous approach) often still
+            // produced solid-black or near-black stills, especially indoors/low light.
+            // Give the sensor up to ~1.5s to settle, checking frame brightness so a
+            // camera that's already warmed up doesn't wait needlessly.
             using var frame = new Mat();
-            // Discard the first few frames - many webcams return a black or
-            // garbage frame immediately after opening while auto-exposure settles.
-            for (var i = 0; i < 3; i++)
+            const int maxWarmupFrames = 30;
+            for (var i = 0; i < maxWarmupFrames; i++)
             {
-                capture.Read(frame);
+                if (!capture.Read(frame) || frame.Empty())
+                {
+                    continue;
+                }
+
+                if (Cv2.Mean(frame).Val0 > 15)
+                {
+                    break;
+                }
+
+                Thread.Sleep(50);
             }
 
             if (frame.Empty())

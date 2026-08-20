@@ -190,3 +190,25 @@ export async function fetchUnrecognizedUsbEvents(token: string): Promise<Unrecog
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+export type ReverseGeocodeResult = {
+  label: string;
+  displayName: string | null;
+  street: string | null;
+  city: string | null;
+  country: string | null;
+};
+
+export async function reverseGeocode(token: string, lat: number, lon: number): Promise<ReverseGeocodeResult> {
+  return request(`/api/geocode/reverse?lat=${lat}&lon=${lon}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function changePassword(token: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  return request('/api/auth/password', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+}
