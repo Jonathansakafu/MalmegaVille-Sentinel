@@ -131,6 +131,7 @@ router.post('/login', authLimiter, validateBody(credentialsSchema), async (req, 
   const token = createToken(String(user._id));
 
   notifySecurityEvent({
+    userId: String(user._id),
     deviceName: user.username || user.email,
     eventType: 'User Login',
     timestampUtc: new Date(),
@@ -213,6 +214,7 @@ router.patch('/password', authenticate, dashboardLimiter, validateBody(updatePas
   await user.save();
 
   notifySecurityEvent({
+    userId,
     deviceName: user.username || user.email,
     eventType: 'Password Changed',
     timestampUtc: new Date(),
@@ -241,6 +243,7 @@ router.post('/logout', authenticate, async (req, res) => {
   const identity = user?.username || user?.email || 'Unknown user';
 
   notifySecurityEvent({
+    userId,
     deviceName: identity,
     eventType: 'User Logout',
     timestampUtc: new Date(),

@@ -1,14 +1,5 @@
 import nodemailer from 'nodemailer';
-import {
-  emailHost,
-  emailPort,
-  emailUser,
-  emailPass,
-  emailFrom,
-  alertEmailRecipient,
-  emailSecure,
-  resendApiKey
-} from '../config.js';
+import { emailHost, emailPort, emailUser, emailPass, emailFrom, emailSecure, resendApiKey } from '../config.js';
 
 interface EmailOptions {
   subject: string;
@@ -17,8 +8,11 @@ interface EmailOptions {
   recipient?: string;
 }
 
+// Each account supplies its own recipient (configured via the dashboard); there
+// is no operator-wide fallback address, since that would deliver every
+// tenant's alerts to the same inbox.
 export function isEmailConfigured(recipient?: string) {
-  const hasRecipient = Boolean(recipient || alertEmailRecipient);
+  const hasRecipient = Boolean(recipient);
   if (resendApiKey) {
     return hasRecipient;
   }
@@ -26,7 +20,7 @@ export function isEmailConfigured(recipient?: string) {
 }
 
 export async function sendAlertEmail({ subject, text, html, recipient }: EmailOptions) {
-  const to = recipient || alertEmailRecipient;
+  const to = recipient;
   if (!isEmailConfigured(to)) {
     return;
   }

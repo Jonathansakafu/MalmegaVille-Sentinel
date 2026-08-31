@@ -5,7 +5,7 @@ import { dashboardLimiter } from '../middleware/rateLimiters.js';
 import { validateBody } from '../middleware/validate.js';
 import NotificationSettings from '../models/NotificationSettings.js';
 import { notifySecurityEvent } from '../services/alertService.js';
-import { getNotificationSettings, saveNotificationSettings } from '../services/inMemoryStore.js';
+import { getNotificationSettingsForUser, saveNotificationSettingsForUser } from '../services/inMemoryStore.js';
 import { dblessTestMode } from '../config.js';
 
 const router = Router();
@@ -14,46 +14,56 @@ router.use(authenticate);
 router.use(dashboardLimiter);
 
 const notificationSettingsSchema = z.object({
-  alertEmailRecipient: z.union([z.literal(''), z.string().trim().email()]),
-  telegramBotToken: z.string(),
-  telegramChatId: z.string()
+  alertEmailRecipient: z.union([z.literal(''), z.string().trim().email()])
 });
 
-router.get('/notifications', async (_req, res) => {
-  if (dblessTestMode) {
-    return res.json(getNotificationSettings());
+router.get('/notifications', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  const settings = await NotificationSettings.findOne();
+  if (dblessTestMode) {
+    return res.json(getNotificationSettingsForUser(userId));
+  }
+
+  const settings = await NotificationSettings.findOne({ userId });
   res.json({
-    alertEmailRecipient: settings?.alertEmailRecipient ?? '',
-    telegramBotToken: settings?.telegramBotToken ?? '',
-    telegramChatId: settings?.telegramChatId ?? ''
+    alertEmailRecipient: settings?.alertEmailRecipient ?? ''
   });
 });
 
 router.put('/notifications', validateBody(notificationSettingsSchema), async (req, res) => {
-  const { alertEmailRecipient, telegramBotToken, telegramChatId } = req.body;
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const { alertEmailRecipient } = req.body;
 
   if (dblessTestMode) {
-    return res.json(saveNotificationSettings({ alertEmailRecipient, telegramBotToken, telegramChatId }));
+    return res.json(saveNotificationSettingsForUser(userId, { alertEmailRecipient }));
   }
 
   const settings = await NotificationSettings.findOneAndUpdate(
-    {},
-    { alertEmailRecipient, telegramBotToken, telegramChatId, updatedAt: new Date() },
+    { userId },
+    { userId, alertEmailRecipient, updatedAt: new Date() },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
   res.json({
-    alertEmailRecipient: settings.alertEmailRecipient ?? '',
-    telegramBotToken: settings.telegramBotToken ?? '',
-    telegramChatId: settings.telegramChatId ?? ''
+    alertEmailRecipient: settings.alertEmailRecipient ?? ''
   });
 });
 
-router.post('/notifications/test', async (_req, res) => {
+router.post('/notifications/test', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
   const result = await notifySecurityEvent({
+    userId,
     deviceName: 'Desktop App',
     eventType: 'Test Alert',
     timestampUtc: new Date(),

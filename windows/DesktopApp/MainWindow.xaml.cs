@@ -366,8 +366,6 @@ public partial class MainWindow : Window
         SignOutButton.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
 
         AlertEmailTextBox.IsEnabled = signedIn;
-        TelegramBotTokenBox.IsEnabled = signedIn;
-        TelegramChatIdTextBox.IsEnabled = signedIn;
         SaveSettingsButton.IsEnabled = signedIn;
         SendTestAlertButton.IsEnabled = signedIn;
     }
@@ -397,8 +395,6 @@ public partial class MainWindow : Window
         AuthTokenStore.Clear();
 
         AlertEmailTextBox.Text = string.Empty;
-        TelegramBotTokenBox.Password = string.Empty;
-        TelegramChatIdTextBox.Text = string.Empty;
         SettingsStatusText.Text = string.Empty;
 
         UpdateAccountUi();
@@ -417,8 +413,6 @@ public partial class MainWindow : Window
         {
             var settings = await _apiClient.GetNotificationSettingsAsync(_authToken);
             AlertEmailTextBox.Text = settings.AlertEmailRecipient;
-            TelegramBotTokenBox.Password = settings.TelegramBotToken;
-            TelegramChatIdTextBox.Text = settings.TelegramChatId;
             SettingsStatusText.Text = string.Empty;
         }
         catch (UnauthorizedApiException)
@@ -444,10 +438,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var settings = new NotificationSettingsDto(
-                AlertEmailTextBox.Text.Trim(),
-                TelegramBotTokenBox.Password.Trim(),
-                TelegramChatIdTextBox.Text.Trim());
+            var settings = new NotificationSettingsDto(AlertEmailTextBox.Text.Trim());
 
             await _apiClient.SaveNotificationSettingsAsync(_authToken, settings);
             SettingsStatusText.Text = "Settings saved.";
@@ -492,13 +483,7 @@ public partial class MainWindow : Window
 
     private static string FormatTestResult(NotificationTestResult result)
     {
-        var parts = new List<string>
-        {
-            DescribeChannel("Email", result.Email),
-            DescribeChannel("Telegram", result.Telegram)
-        };
-
-        return string.Join("  |  ", parts);
+        return DescribeChannel("Email", result.Email);
     }
 
     private static string DescribeChannel(string name, NotificationChannelResult channel)

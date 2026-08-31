@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 
 const syncEventSchema = new mongoose.Schema({
+  // Resolved from the device's registered owner at ingest time. Absent when the
+  // event references a deviceId that hasn't been registered by any account yet.
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   deviceId: { type: String, required: true },
   deviceName: { type: String, default: 'Unknown Device' },
   eventType: { type: String, required: true },

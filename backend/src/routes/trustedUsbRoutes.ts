@@ -26,45 +26,60 @@ const createTrustedUsbDeviceSchema = z.object({
 
 const USB_CONNECT_EVENT_TYPE = 'USB Device Connected';
 
-router.get('/', async (_req, res) => {
-  if (dblessTestMode) {
-    return res.json(listTrustedUsbDevices());
+router.get('/', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  const devices = await TrustedUsbDevice.find().sort({ createdAt: -1 });
+  if (dblessTestMode) {
+    return res.json(listTrustedUsbDevices(userId));
+  }
+
+  const devices = await TrustedUsbDevice.find({ userId }).sort({ createdAt: -1 });
   res.json(devices);
 });
 
 router.post('/', validateBody(createTrustedUsbDeviceSchema), async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
   const { identifier, label } = req.body;
 
   if (dblessTestMode) {
-    if (findTrustedUsbDeviceByIdentifier(identifier)) {
+    if (findTrustedUsbDeviceByIdentifier(userId, identifier)) {
       return res.status(409).json({ message: 'This USB device is already trusted.' });
     }
-    const device = addTrustedUsbDevice(identifier, label);
+    const device = addTrustedUsbDevice(userId, identifier, label);
     return res.status(201).json(device);
   }
 
-  const existing = await TrustedUsbDevice.findOne({ identifier });
+  const existing = await TrustedUsbDevice.findOne({ userId, identifier });
   if (existing) {
     return res.status(409).json({ message: 'This USB device is already trusted.' });
   }
 
-  const device = await TrustedUsbDevice.create({ identifier, label });
+  const device = await TrustedUsbDevice.create({ userId, identifier, label });
   res.status(201).json(device);
 });
 
 router.delete('/:id', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
   if (dblessTestMode) {
-    const removed = removeTrustedUsbDevice(req.params.id);
+    const removed = removeTrustedUsbDevice(userId, req.params.id);
     if (!removed) {
       return res.status(404).json({ message: 'Trusted device not found.' });
     }
     return res.status(204).send();
   }
 
-  const result = await TrustedUsbDevice.findByIdAndDelete(req.params.id);
+  const result = await TrustedUsbDevice.findOneAndDelete({ _id: req.params.id, userId });
   if (!result) {
     return res.status(404).json({ message: 'Trusted device not found.' });
   }
@@ -74,16 +89,21 @@ router.delete('/:id', async (req, res) => {
 // Recent USB-connect events not already on the trusted list, deduped by device
 // identifier (most recent occurrence), so the dashboard can offer a one-click
 // "Mark as Known" action right where the alert shows up.
-router.get('/recent-unrecognized', async (_req, res) => {
+router.get('/recent-unrecognized', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
   const trustedIdentifiers = new Set(
     dblessTestMode
-      ? listTrustedUsbDevices().map((device) => device.identifier)
-      : (await TrustedUsbDevice.find().select('identifier')).map((device) => device.identifier)
+      ? listTrustedUsbDevices(userId).map((device) => device.identifier)
+      : (await TrustedUsbDevice.find({ userId }).select('identifier')).map((device) => device.identifier)
   );
 
   const rawEvents = dblessTestMode
-    ? listRecentUsbEvents()
-    : (await SyncEvent.find({ eventType: USB_CONNECT_EVENT_TYPE }).sort({ createdAt: -1 }).limit(50)).map((event) => ({
+    ? listRecentUsbEvents(userId)
+    : (await SyncEvent.find({ eventType: USB_CONNECT_EVENT_TYPE, userId }).sort({ createdAt: -1 }).limit(50)).map((event) => ({
         deviceName: event.deviceName,
         description: event.description,
         timestampUtc: event.timestampUtc

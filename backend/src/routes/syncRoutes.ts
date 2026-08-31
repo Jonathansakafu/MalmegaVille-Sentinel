@@ -13,12 +13,36 @@ const USB_CONNECT_EVENT_TYPE = 'USB Device Connected';
 
 router.use(agentLimiter);
 
-async function getTrustedUsbIdentifiers(): Promise<Set<string>> {
+async function getTrustedUsbIdentifiers(userId: string): Promise<Set<string>> {
   if (dblessTestMode) {
-    return new Set(listTrustedUsbDevices().map((device) => device.identifier));
+    return new Set(listTrustedUsbDevices(userId).map((device) => device.identifier));
   }
-  const devices = await TrustedUsbDevice.find().select('identifier');
+  const devices = await TrustedUsbDevice.find({ userId }).select('identifier');
   return new Set(devices.map((device) => device.identifier));
+}
+
+// Sync events only carry a deviceId (assigned by the agent), so the owning
+// account has to be resolved from the Device registered under that id. A
+// deviceId with no matching Device (not yet registered by any account) has
+// no known owner - trust checks and alerts for it are skipped rather than
+// falling back to some other tenant's settings.
+async function resolveDeviceOwners(deviceIds: string[]): Promise<Map<string, string>> {
+  const uniqueIds = [...new Set(deviceIds)];
+  const owners = new Map<string, string>();
+
+  if (dblessTestMode) {
+    for (const id of uniqueIds) {
+      const device = findDeviceByDeviceId(id);
+      if (device) owners.set(id, device.userId);
+    }
+    return owners;
+  }
+
+  const devices = await Device.find({ deviceId: { $in: uniqueIds } }).select('deviceId userId');
+  for (const device of devices) {
+    owners.set(device.deviceId, device.userId.toString());
+  }
+  return owners;
 }
 
 export function validateSyncToken(req: any) {
@@ -58,18 +82,30 @@ router.post('/events', async (req, res) => {
     return res.status(400).json({ message: 'No valid sync event payload found.' });
   }
 
-  // A USB-connect event for a drive on the trusted list is downgraded to
-  // Informational before it ever reaches the alert-worthy filter below, so
-  // known devices never trigger a notification. Unrecognized ones are left
-  // alone (still alert) and tracked for the "Mark as Known" dashboard action.
-  const trustedIdentifiers = await getTrustedUsbIdentifiers();
-  for (const event of events) {
-    if (event.eventType === USB_CONNECT_EVENT_TYPE) {
-      if (trustedIdentifiers.has(event.deviceName)) {
-        event.severity = 'Informational';
-      } else if (dblessTestMode && event.deviceName !== 'unknown') {
-        recordUsbConnectEvent(event.deviceName, event.description, event.timestampUtc);
-      }
+  // Attribute each event to the account that registered its deviceId. An
+  // unrecognized deviceId has no owner, so its trust check and alert are
+  // skipped rather than falling back to some other tenant's settings.
+  const owners = await resolveDeviceOwners(events.map((event) => event.deviceId));
+  const eventsWithOwners = events.map((event) => ({ ...event, userId: owners.get(event.deviceId) }));
+
+  // A USB-connect event for a drive on the owning account's trusted list is
+  // downgraded to Informational before it ever reaches the alert-worthy
+  // filter below, so known devices never trigger a notification.
+  // Unrecognized ones are left alone (still alert) and tracked per-account
+  // for the "Mark as Known" dashboard action.
+  const trustedIdentifiersByUser = new Map<string, Set<string>>();
+  for (const event of eventsWithOwners) {
+    if (event.eventType !== USB_CONNECT_EVENT_TYPE || !event.userId) continue;
+
+    if (!trustedIdentifiersByUser.has(event.userId)) {
+      trustedIdentifiersByUser.set(event.userId, await getTrustedUsbIdentifiers(event.userId));
+    }
+    const trustedIdentifiers = trustedIdentifiersByUser.get(event.userId)!;
+
+    if (trustedIdentifiers.has(event.deviceName)) {
+      event.severity = 'Informational';
+    } else if (event.deviceName !== 'unknown') {
+      recordUsbConnectEvent(event.userId, event.deviceName, event.description, event.timestampUtc);
     }
   }
 
@@ -77,11 +113,16 @@ router.post('/events', async (req, res) => {
   // "Informational" severity and arrives constantly - alerting on it would
   // flood every configured channel. Only notify for events severe enough to
   // actually warrant the owner's attention.
-  const alertWorthyEvents = events.filter((event) => event.severity.toLowerCase() !== 'informational');
+  const alertWorthyEvents = eventsWithOwners.filter((event) => event.severity.toLowerCase() !== 'informational');
 
-  if (dblessTestMode) {
+  const sendAlerts = () => {
     for (const event of alertWorthyEvents) {
+      if (!event.userId) {
+        console.warn(`Skipping alert for event on unregistered device ${event.deviceId}`);
+        continue;
+      }
       notifySecurityEvent({
+        userId: event.userId,
         deviceName: event.deviceName,
         eventType: event.eventType,
         timestampUtc: event.timestampUtc,
@@ -94,26 +135,15 @@ router.post('/events', async (req, res) => {
         console.error('Notification failed for sync event', error);
       });
     }
+  };
 
+  if (dblessTestMode) {
+    sendAlerts();
     return res.status(201).json({ saved: events.length, dbPersisted: false, message: 'DB-less mode active; events were not persisted.' });
   }
 
-  const savedEvents = await SyncEvent.insertMany(events);
-
-  for (const event of alertWorthyEvents) {
-    notifySecurityEvent({
-      deviceName: event.deviceName,
-      eventType: event.eventType,
-      timestampUtc: event.timestampUtc,
-      severity: event.severity,
-      description: event.description,
-      threatScore: event.threatScore,
-      recommendedAction: event.recommendedAction,
-      metadata: event.metadata
-    }).catch((error) => {
-      console.error('Notification failed for sync event', error);
-    });
-  }
+  const savedEvents = await SyncEvent.insertMany(eventsWithOwners);
+  sendAlerts();
 
   return res.status(201).json({ saved: savedEvents.length });
 });

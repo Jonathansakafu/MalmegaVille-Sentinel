@@ -62,6 +62,7 @@ router.post('/', validateBody(createIncidentSchema), async (req, res) => {
     : (await Device.findOne({ userId, deviceId }))?.name ?? 'Unknown device';
 
   notifySecurityEvent({
+    userId,
     deviceName,
     eventType: 'Incident Report',
     timestampUtc: new Date(),

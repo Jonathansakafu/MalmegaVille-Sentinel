@@ -1,13 +1,13 @@
 # MalmegaVille Sentinel
 
-MalmegaVille Sentinel is a personal endpoint security platform: it watches your Windows PC for security events (logins, USB activity), alerts you by email and Telegram, and — if the device is ever lost or stolen — silently captures a webcam photo, an approximate location, and copies files from any USB drive that gets inserted, so you have evidence to help recover it.
+MalmegaVille Sentinel is a personal endpoint security platform: it watches your Windows PC for security events (logins, USB activity), alerts you by email, and — if the device is ever lost or stolen — silently captures a webcam photo, an approximate location, and copies files from any USB drive that gets inserted, so you have evidence to help recover it.
 
 **Live dashboard:** <https://app-production-fd2d.up.railway.app>
 
 ## How it works
 
 1. Two Windows programs run on the protected PC: a background **Core Service** (Windows Service, monitors USB/system events) and a **Desktop App** (tray icon, handles login, notification settings, and — because it runs in your interactive session rather than as a background service — webcam/location capture).
-2. Both talk to a central **backend** (Node/Express + MongoDB), which stores devices, incidents, and captures, and sends alert emails/Telegram messages.
+2. Both talk to a central **backend** (Node/Express + MongoDB), which stores devices, incidents, and captures, and sends alert emails.
 3. You manage everything from the **web dashboard** (React) — device inventory, incident history, notification settings, and a gallery of anything captured from a lost/stolen device.
 
 ### Lost/stolen device recovery
@@ -36,7 +36,7 @@ In production, the backend also serves the built frontend as static files from a
 
 ```bash
 cd backend
-cp .env.example .env   # fill in MongoDB URI, JWT secret, email/Telegram config
+cp .env.example .env   # fill in MongoDB URI, JWT secret, email config
 npm install
 npm run dev
 ```
@@ -68,5 +68,5 @@ The whole system (backend + frontend + MongoDB) deploys as a single Railway proj
 
 ### Known limitations on the current deployment
 
-- **Email alerts don't send from Railway.** Gmail SMTP (both port 587 and 465) times out from Railway's network — several PaaS providers block outbound SMTP by default to prevent spam relaying. Telegram alerts are unaffected (HTTPS API). To get email working in production, swap `emailService.ts` for an HTTP-API email provider (Resend, SendGrid, Mailgun) instead of raw SMTP.
+- **Gmail SMTP alerts don't send from Railway.** Gmail SMTP (both port 587 and 465) times out from Railway's network — several PaaS providers block outbound SMTP by default to prevent spam relaying. Email is now the only alert channel, so production deployments must set `RESEND_API_KEY` (or another HTTP-API email provider) rather than relying on raw SMTP.
 - **Capture storage isn't on a persistent volume yet.** The Railway CLI (`railway volume add`) crashed when attaching one during setup; captured photos/USB files currently live on the container's ephemeral disk and won't survive a redeploy. Attach a volume mounted at `/data` via the Railway dashboard and it'll be picked up automatically (`CAPTURE_STORAGE_DIR=/data/captures` is already set).

@@ -11,13 +11,10 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record LoginUser(string Email, string Id);
 public sealed record LoginResponse(string Token, LoginUser User);
 
-public sealed record NotificationSettingsDto(
-    string AlertEmailRecipient,
-    string TelegramBotToken,
-    string TelegramChatId);
+public sealed record NotificationSettingsDto(string AlertEmailRecipient);
 
 public sealed record NotificationChannelResult(bool Configured, bool Sent, string? Error);
-public sealed record NotificationTestResult(NotificationChannelResult Email, NotificationChannelResult Telegram);
+public sealed record NotificationTestResult(NotificationChannelResult Email);
 
 public sealed record LostStatusResponse(string DeviceId, bool IsLost);
 
@@ -153,7 +150,7 @@ public sealed class BackendApiClient
         await EnsureSuccessOrThrowAsync(response);
 
         var result = await response.Content.ReadFromJsonAsync<NotificationSettingsDto>(JsonOptions);
-        return result ?? new NotificationSettingsDto("", "", "");
+        return result ?? new NotificationSettingsDto("");
     }
 
     public async Task<NotificationSettingsDto> SaveNotificationSettingsAsync(string token, NotificationSettingsDto settings)
@@ -180,7 +177,7 @@ public sealed class BackendApiClient
         await EnsureSuccessOrThrowAsync(response);
 
         var result = await response.Content.ReadFromJsonAsync<NotificationTestResult>(JsonOptions);
-        return result ?? new NotificationTestResult(new NotificationChannelResult(false, false, null), new NotificationChannelResult(false, false, null));
+        return result ?? new NotificationTestResult(new NotificationChannelResult(false, false, null));
     }
 
     private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)

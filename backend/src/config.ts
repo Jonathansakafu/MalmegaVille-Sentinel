@@ -11,14 +11,11 @@ export const jwtSecret = process.env.JWT_SECRET;
 export const dblessTestMode =
   process.env.DBLESS_TEST_MODE === 'true' || process.env.SKIP_DB === 'true' || process.env.NODE_ENV === 'test';
 
-export const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-export const telegramChatId = process.env.TELEGRAM_CHAT_ID;
 export const emailHost = process.env.EMAIL_HOST;
 export const emailPort = process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined;
 export const emailUser = process.env.EMAIL_USER;
 export const emailPass = process.env.EMAIL_PASS;
 export const emailFrom = process.env.EMAIL_FROM ?? 'no-reply@malmegaville.local';
-export const alertEmailRecipient = process.env.ALERT_EMAIL_RECIPIENT;
 export const emailSecure = process.env.EMAIL_SECURE === 'true';
 // When set, emails send via Resend's HTTP API (port 443) instead of SMTP -
 // needed because raw SMTP is blocked outbound on some PaaS hosts (Railway included).

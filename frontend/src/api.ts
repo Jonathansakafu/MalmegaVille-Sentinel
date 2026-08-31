@@ -118,12 +118,10 @@ export async function fetchCaptureBlobUrl(token: string, captureId: string): Pro
 
 export type NotificationSettings = {
   alertEmailRecipient: string;
-  telegramBotToken: string;
-  telegramChatId: string;
 };
 
 export type NotificationChannelResult = { configured: boolean; sent: boolean; error?: string };
-export type NotificationTestResult = { email: NotificationChannelResult; telegram: NotificationChannelResult };
+export type NotificationTestResult = { email: NotificationChannelResult };
 
 export async function fetchNotificationSettings(token: string): Promise<NotificationSettings> {
   return request('/api/settings/notifications', {

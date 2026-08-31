@@ -81,19 +81,11 @@
 
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Text="Notification Channels" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Every channel filled in below is used for alerts at the same time - fill in one or both." Style="{StaticResource HintText}" Margin="0,0,0,18" />
+                                <TextBlock Text="Notification Email" Style="{StaticResource SectionHeading}" />
+                                <TextBlock Text="Security alerts (logins, USB activity, lost-device captures) are sent to this address." Style="{StaticResource HintText}" Margin="0,0,0,18" />
 
                                 <TextBlock Text="Alert email address" Style="{StaticResource FieldLabel}" />
                                 <TextBox x:Name="AlertEmailTextBox" Margin="0,0,0,16" IsEnabled="False" />
-
-                                <TextBlock Text="Telegram bot token" Style="{StaticResource FieldLabel}" />
-                                <PasswordBox x:Name="TelegramBotTokenBox" Margin="0,0,0,6" IsEnabled="False" />
-                                <TextBlock Text="Create a bot via @BotFather on Telegram to get a token." Style="{StaticResource HintText}" Margin="0,0,0,16" />
-
-                                <TextBlock Text="Telegram chat ID" Style="{StaticResource FieldLabel}" />
-                                <TextBox x:Name="TelegramChatIdTextBox" Margin="0,0,0,6" IsEnabled="False" />
-                                <TextBlock Text="Message your bot, then open https://api.telegram.org/bot&lt;token&gt;/getUpdates to find your chat id." Style="{StaticResource HintText}" Margin="0,0,0,18" />
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                                     <Button x:Name="SaveSettingsButton" Content="Save Settings" Width="130" Click="SaveSettings_Click" IsEnabled="False" Style="{StaticResource PrimaryButton}" />

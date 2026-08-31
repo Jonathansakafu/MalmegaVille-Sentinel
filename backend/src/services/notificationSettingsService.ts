@@ -1,23 +1,20 @@
 import mongoose from 'mongoose';
 import NotificationSettings from '../models/NotificationSettings.js';
 import { dblessTestMode } from '../config.js';
-import { getNotificationSettings as getInMemorySettings } from './inMemoryStore.js';
+import { getNotificationSettingsForUser as getInMemorySettingsForUser } from './inMemoryStore.js';
 
 export interface EffectiveNotificationSettings {
   alertEmailRecipient?: string;
-  telegramBotToken?: string;
-  telegramChatId?: string;
 }
 
-// DB-stored settings (configured via the desktop app or web UI) take priority
-// over the operator-level defaults in .env, which remain as a fallback.
-export async function getEffectiveNotificationSettings(): Promise<EffectiveNotificationSettings> {
+// Each account configures its own alert email; settings are looked up by the
+// owning userId so one user's recipient is never used for another user's
+// alerts.
+export async function getEffectiveNotificationSettings(userId: string): Promise<EffectiveNotificationSettings> {
   if (dblessTestMode) {
-    const settings = getInMemorySettings();
+    const settings = getInMemorySettingsForUser(userId);
     return {
-      alertEmailRecipient: settings.alertEmailRecipient || undefined,
-      telegramBotToken: settings.telegramBotToken || undefined,
-      telegramChatId: settings.telegramChatId || undefined
+      alertEmailRecipient: settings.alertEmailRecipient || undefined
     };
   }
 
@@ -25,10 +22,8 @@ export async function getEffectiveNotificationSettings(): Promise<EffectiveNotif
     return {};
   }
 
-  const settings = await NotificationSettings.findOne();
+  const settings = await NotificationSettings.findOne({ userId });
   return {
-    alertEmailRecipient: settings?.alertEmailRecipient || undefined,
-    telegramBotToken: settings?.telegramBotToken || undefined,
-    telegramChatId: settings?.telegramChatId || undefined
+    alertEmailRecipient: settings?.alertEmailRecipient || undefined
   };
 }
