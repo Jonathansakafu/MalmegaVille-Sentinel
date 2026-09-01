@@ -20,6 +20,12 @@ export const emailSecure = process.env.EMAIL_SECURE === 'true';
 // When set, emails send via Resend's HTTP API (port 443) instead of SMTP -
 // needed because raw SMTP is blocked outbound on some PaaS hosts (Railway included).
 export const resendApiKey = process.env.RESEND_API_KEY;
+// Alternative HTTP-API email provider - unlike Resend, Brevo's free tier
+// needs only a single verified sender *email address* (no domain/DNS) and
+// has no "only send to the account owner" sandbox restriction, so it can
+// actually deliver to every registered user's own alert address. Checked
+// second, after Resend, so an existing Resend setup keeps working unchanged.
+export const brevoApiKey = process.env.BREVO_API_KEY;
 export const syncToken = process.env.SYNC_TOKEN;
 export const dashboardUrl = (process.env.DASHBOARD_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 export const notificationLogoUrl = process.env.NOTIFICATION_LOGO_URL ?? `${dashboardUrl}/logo.jpeg`;

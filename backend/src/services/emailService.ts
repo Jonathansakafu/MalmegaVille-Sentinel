@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { emailHost, emailPort, emailUser, emailPass, emailFrom, emailSecure, resendApiKey } from '../config.js';
+import { emailHost, emailPort, emailUser, emailPass, emailFrom, emailSecure, resendApiKey, brevoApiKey } from '../config.js';
 
 interface EmailOptions {
   subject: string;
@@ -13,10 +13,22 @@ interface EmailOptions {
 // tenant's alerts to the same inbox.
 export function isEmailConfigured(recipient?: string) {
   const hasRecipient = Boolean(recipient);
-  if (resendApiKey) {
+  if (resendApiKey || brevoApiKey) {
     return hasRecipient;
   }
   return Boolean(emailHost && emailPort && emailUser && emailPass && hasRecipient);
+}
+
+// EMAIL_FROM is stored RFC 5322-style ("Name <email@domain>"), which is what
+// Resend's API takes directly - Brevo's API instead wants sender name/email
+// as separate fields, so this pulls them apart.
+function parseFromAddress(from: string): { name?: string; email: string } {
+  const match = from.match(/^\s*(.*?)\s*<(.+)>\s*$/);
+  if (match) {
+    const name = match[1].replace(/^"|"$/g, '').trim();
+    return { name: name || undefined, email: match[2].trim() };
+  }
+  return { email: from.trim() };
 }
 
 export async function sendAlertEmail({ subject, text, html, recipient }: EmailOptions) {
@@ -25,8 +37,8 @@ export async function sendAlertEmail({ subject, text, html, recipient }: EmailOp
     return;
   }
 
-  // Resend's HTTP API (port 443) is used when configured, since raw SMTP (ports 587/465)
-  // is blocked outbound on some PaaS hosts (confirmed on Railway - see README).
+  // HTTP-API providers (port 443) are preferred over raw SMTP (ports 587/465),
+  // which is blocked outbound on some PaaS hosts (confirmed on Railway - see README).
   if (resendApiKey) {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -40,6 +52,31 @@ export async function sendAlertEmail({ subject, text, html, recipient }: EmailOp
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       throw new Error(`Resend API request failed (${response.status}): ${body}`);
+    }
+    return;
+  }
+
+  if (brevoApiKey) {
+    const sender = parseFromAddress(emailFrom);
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': brevoApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        sender,
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Brevo API request failed (${response.status}): ${body}`);
     }
     return;
   }
