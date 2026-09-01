@@ -85,7 +85,7 @@ public sealed class ConnectivityEngine
     {
         try
         {
-            var selector = SmsDevice2.GetDeviceSelector();
+            var selector = SmsDevice.GetDeviceSelector();
             var devices = await DeviceInformation.FindAllAsync(selector);
             return devices.Count > 0;
         }

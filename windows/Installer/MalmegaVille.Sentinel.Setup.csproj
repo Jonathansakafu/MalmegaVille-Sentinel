@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MalmegaVilleSentinelSetup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The CoreService and DesktopApp are already published, self contained
+         win x64 output, zipped and embedded here as ordinary managed
+         resources, not .NET's single-file "content extraction" mechanism,
+         whose extraction path isn't something this installer should depend
+         on. At runtime this installer unzips them itself to Program Files.
+         Regenerate Payload zips after any agent-side change: see
+         windows/Installer/README.md.
+    -->
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Payload\coreservice-publish.zip" LogicalName="CoreServicePayload.zip" />
+    <EmbeddedResource Include="Payload\desktopapp-publish.zip" LogicalName="DesktopAppPayload.zip" />
+  </ItemGroup>
+</Project>

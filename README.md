@@ -90,7 +90,7 @@ The whole system (backend + frontend + MongoDB) deploys as a single Railway proj
 
 Push notifications (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`) and the SMS fallback channel (`SENTINEL_OWNER_SMS_NUMBER`, set on the Windows agent, not the backend) are both optional — each is simply disabled, exactly like email with no recipient configured, until its keys/number are set.
 
-The Windows agent (`windows/`) is distributed separately as a downloadable installer, not part of the Railway deploy — rebuild and re-publish it on Windows (`dotnet publish`) after agent-side changes, then update the packaged download.
+The Windows agent (`windows/`) is distributed separately from the Railway deploy, as a one-click installer (`MalmegaVilleSentinelSetup.exe`) published as a GitHub Release asset — see `windows/Installer/README.md` for how to rebuild and re-publish it after agent-side changes, then update the release and the Download page's link.
 
 ### Known limitations on the current deployment
 

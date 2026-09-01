@@ -29,6 +29,11 @@ windows/**/bin/
 windows/**/obj/
 windows/install-run-log.txt
 
+# Installer payload: pre-built self-contained agent output, ~150MB - too large
+# for git and regenerable from source (see windows/Installer/README.md). The
+# built installer itself is published as a GitHub Release asset, not committed.
+windows/Installer/Payload/*.zip
+
 # Logs
 *.log
 

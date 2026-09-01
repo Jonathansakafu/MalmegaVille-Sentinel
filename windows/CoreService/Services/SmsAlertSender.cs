@@ -37,7 +37,7 @@ public sealed class SmsAlertSender
 
         try
         {
-            var selector = SmsDevice2.GetDeviceSelector();
+            var selector = SmsDevice.GetDeviceSelector();
             var devices = await DeviceInformation.FindAllAsync(selector);
             if (devices.Count == 0)
             {
@@ -45,8 +45,12 @@ public sealed class SmsAlertSender
                 return false;
             }
 
-            var smsDevice = await SmsDevice2.FromIdAsync(devices[0].Id);
-            var message = new SmsTextMessage(BuildMessageBody(securityEvent), _ownerPhoneNumber);
+            var smsDevice = await SmsDevice.FromIdAsync(devices[0].Id);
+            var message = new SmsTextMessage
+            {
+                To = _ownerPhoneNumber,
+                Body = BuildMessageBody(securityEvent)
+            };
 
             await smsDevice.SendMessageAsync(message);
             _logger.LogInformation("Sent SMS fallback alert for event {EventType}.", securityEvent.EventType);

@@ -6,8 +6,10 @@ This package contains the source for the two Windows programs that protect a PC:
 - **DesktopApp** — a tray app you sign in to; it handles notification settings and the
   webcam/location capture used for lost/stolen device recovery.
 
-There isn't a signed, pre-built installer yet, so setting this up currently requires
-building from source. That takes about 5 minutes with the right tools installed.
+**Most people don't need this file.** The [Download page](https://app-production-fd2d.up.railway.app/download)
+has a one-click `MalmegaVilleSentinelSetup.exe` installer — just run it as Administrator.
+The rest of this document is for building from source instead (e.g. to make agent-side
+code changes), which takes about 5 minutes with the right tools installed.
 
 ## Prerequisites
 
