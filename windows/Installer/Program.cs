@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 
 Console.Title = "MalmegaVille Sentinel Setup";
 
@@ -52,6 +53,13 @@ void Install()
     Console.WriteLine("MalmegaVille Sentinel Setup");
     Console.WriteLine("===========================");
     Console.WriteLine();
+
+    // A previous install's Core Service (running) and Desktop App (if open)
+    // both hold their own .exe file open, which blocks overwriting them below
+    // with "being used by another process" - stop/close them first so this
+    // installer can also be used to upgrade an existing install in place.
+    Console.WriteLine("Stopping any existing installation so it can be updated...");
+    StopExistingInstallation();
 
     Console.WriteLine($"Installing to {installDir} ...");
     ExtractEmbeddedZip("CoreServicePayload.zip", coreServiceDir);
@@ -111,6 +119,31 @@ void Uninstall()
     Console.WriteLine("MalmegaVille Sentinel has been removed.");
 }
 
+void StopExistingInstallation()
+{
+    // Ignored if the service doesn't exist yet (first-ever install).
+    RunProcess("sc.exe", $"stop {ServiceName}", ignoreFailure: true);
+
+    // The tray app locks its own .exe while running.
+    foreach (var process in Process.GetProcessesByName("MalmegaVille.Sentinel.Desktop"))
+    {
+        try
+        {
+            process.Kill();
+            process.WaitForExit(5000);
+        }
+        catch
+        {
+            // Best effort - the retrying extraction below still catches a
+            // file left locked, with a clearer error than a bare IOException.
+        }
+        finally
+        {
+            process.Dispose();
+        }
+    }
+}
+
 void RequireAdministrator()
 {
     using var identity = WindowsIdentity.GetCurrent();
@@ -139,7 +172,28 @@ void ExtractEmbeddedZip(string resourceName, string destinationDir)
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-        entry.ExtractToFile(destinationPath, overwrite: true);
+        ExtractFileWithRetry(entry, destinationPath);
+    }
+}
+
+void ExtractFileWithRetry(ZipArchiveEntry entry, string destinationPath)
+{
+    const int maxAttempts = 10;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            entry.ExtractToFile(destinationPath, overwrite: true);
+            return;
+        }
+        catch (IOException) when (attempt < maxAttempts)
+        {
+            // sc.exe stop only requests a stop - it returns before the
+            // process has actually exited and released its file handle, so
+            // the previous version's .exe can still be locked for a moment.
+            // Wait and retry rather than failing an otherwise-fine upgrade.
+            Thread.Sleep(1000);
+        }
     }
 }
 
