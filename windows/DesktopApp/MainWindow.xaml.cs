@@ -46,13 +46,30 @@ public partial class MainWindow : Window
         SystemEvents.SessionSwitch += OnSessionSwitch;
         _usbPollTimer.Tick += OnUsbPollTick;
         _usbPollTimer.Start();
+
+        // Covers "the device is powered on and someone signs in": this app only
+        // runs because the all-users Startup folder shortcut just launched it
+        // after that sign-in completed, so by the time OnSessionSwitch below
+        // could observe a SessionLogon event, this app (and its subscription
+        // to it) didn't exist yet to catch it. Attempting a capture on the
+        // app's own startup covers that moment instead - and since the
+        // Startup shortcut is all-users, this fires for any account that
+        // signs in, including one a thief creates.
+        _ = TryCaptureAsync("sign_in");
     }
 
     private async void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
     {
+        // SessionUnlock: screen was locked, now unlocked. SessionLogon: a fast
+        // user switch to a different account while this app was already
+        // running under another session.
         if (e.Reason == SessionSwitchReason.SessionUnlock)
         {
             await TryCaptureAsync("login_unlock");
+        }
+        else if (e.Reason == SessionSwitchReason.SessionLogon)
+        {
+            await TryCaptureAsync("sign_in");
         }
     }
 
