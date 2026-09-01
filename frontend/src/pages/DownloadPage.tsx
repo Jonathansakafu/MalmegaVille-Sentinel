@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import { Download, Apple, Clock, ShieldCheck } from 'lucide-react';
 import PublicNav from '../components/PublicNav';
 
+// Zipped rather than a bare .exe link: Chrome (and some other browsers)
+// flags a freshly-published, unsigned executable as an "uncommon/dangerous
+// file" and blocks the download outright until the user overrides it -
+// wrapping it in a .zip avoids that extra friction.
 const WINDOWS_INSTALLER_URL =
-  'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/windows-agent-v1.0.0/MalmegaVilleSentinelSetup.exe';
+  'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/windows-agent-v1.0.0/MalmegaVilleSentinelSetup.zip';
 
 function detectPlatform(): 'windows' | 'mac' | 'other' {
   const platform = navigator.userAgent || '';
@@ -50,23 +54,30 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             </div>
             <h2 className="mt-5 text-xl font-semibold text-white">Windows</h2>
             <p className="mt-2 text-sm text-slate-400">
-              Windows 10/11. One installer, nothing else to set up — run it as Administrator and sign in when the
-              tray app opens.
+              Windows 10/11. Unzip, then run the installer inside as Administrator and sign in when the tray app
+              opens.
             </p>
             <a
               href={WINDOWS_INSTALLER_URL}
               className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-brand-green px-6 py-3 text-sm font-semibold text-black transition hover:bg-white"
             >
               <Download size={16} />
-              Download for Windows
+              Download for Windows (.zip)
             </a>
-            <p className="mt-3 text-center text-xs text-slate-500">
-              Unsigned build — Windows SmartScreen may warn about an unrecognized publisher; choose "More info" →
-              "Run anyway".{' '}
-              <a href="/downloads/malmegaville-sentinel-windows-agent.zip" className="underline hover:text-slate-300">
-                Prefer to build from source?
-              </a>
-            </p>
+            <div className="mt-3 space-y-1 text-center text-xs text-slate-500">
+              <p>
+                Browser flags the download as unrecognized? Click the arrow next to it and choose "Keep" — it's a
+                new file, not a known publisher yet.
+              </p>
+              <p>
+                Windows SmartScreen may also warn when you run it — choose "More info" → "Run anyway".
+              </p>
+              <p>
+                <a href="/downloads/malmegaville-sentinel-windows-agent.zip" className="underline hover:text-slate-300">
+                  Prefer to build from source?
+                </a>
+              </p>
+            </div>
           </div>
 
           <div className="rounded-3xl bg-brand-panel p-6 opacity-80 shadow-lg shadow-black/30 sm:p-8">
