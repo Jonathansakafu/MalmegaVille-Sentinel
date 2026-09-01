@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;
 
 Console.Title = "MalmegaVille Sentinel Setup";
 
@@ -74,6 +75,9 @@ void Install()
         Environment.SetEnvironmentVariable("SENTINEL_BACKEND_API_BASE_URL", DefaultBackendApiBaseUrl, EnvironmentVariableTarget.Machine);
     }
 
+    Console.WriteLine("Enabling camera and location access for background apps...");
+    GrantCameraAndLocationAccess();
+
     Console.WriteLine("Registering the Core Service (starts automatically at boot, runs as LocalSystem)...");
     RegisterService();
 
@@ -141,6 +145,37 @@ void StopExistingInstallation()
         {
             process.Dispose();
         }
+    }
+}
+
+// Windows blocks unpackaged desktop apps (like the tray app) from the camera
+// and location by default via two account-wide toggles under Settings ->
+// Privacy & security, separate from any per-app manifest. There's no
+// programmatic per-app consent prompt available to an unpackaged app the way
+// there is for a Store app - the owner either flips these globally, or the
+// feature silently never works. Since this installer only runs when the
+// device's own owner elevates it specifically to set up monitoring, setting
+// them here is the same one-time consent a Store app's install-time prompt
+// would represent, not a covert bypass. Best-effort: never blocks the rest
+// of setup if a registry write fails (e.g. a locked-down/managed machine).
+void GrantCameraAndLocationAccess()
+{
+    TrySetConsentValue(@"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam");
+    TrySetConsentValue(@"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam\NonPackaged");
+    TrySetConsentValue(@"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location");
+    TrySetConsentValue(@"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location\NonPackaged");
+}
+
+void TrySetConsentValue(string subKeyPath)
+{
+    try
+    {
+        using var key = Registry.LocalMachine.CreateSubKey(subKeyPath, writable: true);
+        key?.SetValue("Value", "Allow", RegistryValueKind.String);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  (Could not set {subKeyPath}: {ex.Message} - you may need to enable this manually in Settings > Privacy & security.)");
     }
 }
 
