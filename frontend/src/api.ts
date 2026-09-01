@@ -121,7 +121,7 @@ export type NotificationSettings = {
 };
 
 export type NotificationChannelResult = { configured: boolean; sent: boolean; error?: string };
-export type NotificationTestResult = { email: NotificationChannelResult };
+export type NotificationTestResult = { email: NotificationChannelResult; push: NotificationChannelResult };
 
 export async function fetchNotificationSettings(token: string): Promise<NotificationSettings> {
   return request('/api/settings/notifications', {
@@ -208,5 +208,28 @@ export async function changePassword(token: string, currentPassword: string, new
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ currentPassword, newPassword })
+  });
+}
+
+export async function fetchPushPublicKey(): Promise<{ publicKey: string }> {
+  return request('/api/push/public-key');
+}
+
+export async function subscribePush(
+  token: string,
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
+): Promise<void> {
+  await request('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(subscription)
+  });
+}
+
+export async function unsubscribePush(token: string, endpoint: string): Promise<void> {
+  await request('/api/push/unsubscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ endpoint })
   });
 }

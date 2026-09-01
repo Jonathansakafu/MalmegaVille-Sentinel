@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Send, Save, User, Usb, ShieldCheck, Trash2, Check, KeyRound } from 'lucide-react';
+import { Mail, Send, Save, User, Usb, ShieldCheck, Trash2, Check, KeyRound, Bell, BellOff } from 'lucide-react';
 import {
   NotificationSettings,
   NotificationTestResult,
@@ -13,9 +13,25 @@ import {
   fetchTrustedUsbDevices,
   addTrustedUsbDevice,
   removeTrustedUsbDevice,
-  fetchUnrecognizedUsbEvents
+  fetchUnrecognizedUsbEvents,
+  fetchPushPublicKey,
+  subscribePush,
+  unsubscribePush
 } from '../api';
 import Spinner from './Spinner';
+
+// VAPID public keys are distributed as URL-safe base64; the Push API needs
+// them as a raw Uint8Array.
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) {
+    output[i] = rawData.charCodeAt(i);
+  }
+  return output;
+}
 
 function describeChannel(name: string, channel: { configured: boolean; sent: boolean; error?: string }): string {
   if (!channel.configured) return `${name}: not configured`;
@@ -347,6 +363,142 @@ function KnownUsbDevices({ token }: { token: string }) {
   );
 }
 
+type PushSupportState = 'checking' | 'unsupported' | 'not-configured' | 'subscribed' | 'unsubscribed' | 'denied';
+
+function PushNotificationSettings({ token }: { token: string }) {
+  const [state, setState] = useState<PushSupportState>('checking');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function detect() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (!cancelled) setState('unsupported');
+        return;
+      }
+
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const existing = await registration.pushManager.getSubscription();
+        if (cancelled) return;
+        if (existing) {
+          setState('subscribed');
+        } else if (Notification.permission === 'denied') {
+          setState('denied');
+        } else {
+          setState('unsubscribed');
+        }
+      } catch (error) {
+        if (!cancelled) setState('unsupported');
+      }
+    }
+
+    detect();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleEnable = async () => {
+    setBusy(true);
+    setStatus('');
+    try {
+      const { publicKey } = await fetchPushPublicKey();
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setState('denied');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource
+      });
+
+      await subscribePush(token, subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } });
+      setState('subscribed');
+      setStatus('Push notifications enabled on this browser.');
+    } catch (error) {
+      setState('not-configured');
+      setStatus(error instanceof Error ? error.message : 'Failed to enable push notifications.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    setBusy(true);
+    setStatus('');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await unsubscribePush(token, subscription.endpoint);
+        await subscription.unsubscribe();
+      }
+      setState('unsubscribed');
+      setStatus('Push notifications disabled on this browser.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to disable push notifications.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        <Bell size={18} className="text-brand-green" />
+        Push Notifications
+      </h2>
+      <p className="mt-2 text-sm text-slate-400">
+        Get an alert on this browser/device the moment a security event happens, even if this tab isn't open.
+      </p>
+
+      <div className="mt-6 max-w-lg space-y-4">
+        {state === 'checking' ? <Spinner label="Checking push support..." /> : null}
+
+        {state === 'unsupported' ? <p className="text-sm text-slate-400">This browser doesn't support push notifications.</p> : null}
+
+        {state === 'denied' ? (
+          <p className="text-sm text-amber-400">
+            Notifications are blocked for this site in your browser settings. Allow notifications, then reload this page.
+          </p>
+        ) : null}
+
+        {state === 'unsubscribed' || state === 'not-configured' ? (
+          <button
+            onClick={handleEnable}
+            disabled={busy}
+            type="button"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+          >
+            <Bell size={16} />
+            Enable Push Notifications
+          </button>
+        ) : null}
+
+        {state === 'subscribed' ? (
+          <button
+            onClick={handleDisable}
+            disabled={busy}
+            type="button"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-rose-500 hover:text-rose-300 disabled:opacity-50"
+          >
+            <BellOff size={16} />
+            Disable Push Notifications
+          </button>
+        ) : null}
+
+        {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+      </div>
+    </section>
+  );
+}
+
 function SettingsPanel({
   token,
   username,
@@ -390,7 +542,7 @@ function SettingsPanel({
     setStatus('Sending test alert...');
     try {
       const result: NotificationTestResult = await sendTestAlert(token);
-      setStatus(describeChannel('Email', result.email));
+      setStatus(`${describeChannel('Email', result.email)} · ${describeChannel('Push', result.push)}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Failed to send test alert.');
     } finally {
@@ -405,6 +557,8 @@ function SettingsPanel({
       <ChangePassword token={token} />
 
       <KnownUsbDevices token={token} />
+
+      <PushNotificationSettings token={token} />
 
       <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
         <h2 className="flex items-center gap-2 text-xl font-semibold">

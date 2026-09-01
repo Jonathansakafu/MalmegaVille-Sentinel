@@ -5,6 +5,7 @@ import { dashboardLimiter } from '../middleware/rateLimiters.js';
 import { validateBody } from '../middleware/validate.js';
 import Device from '../models/Device.js';
 import { dblessTestMode } from '../config.js';
+import { recordAuditLog } from '../services/auditLogService.js';
 import { listDevicesForUser, upsertDevice, setDeviceLostStatus } from '../services/inMemoryStore.js';
 
 const router = Router();
@@ -84,6 +85,14 @@ router.patch('/:id/lost-status', validateBody(lostStatusSchema), async (req, res
     if (!device) {
       return res.status(404).json({ message: 'Device not found.' });
     }
+    recordAuditLog({
+      userId,
+      action: isLost ? 'device.marked_lost' : 'device.marked_found',
+      actorType: 'user',
+      description: `Device "${device.name}" marked as ${isLost ? 'lost/stolen' : 'found'}.`,
+      targetType: 'device',
+      targetId: device.deviceId
+    });
     return res.json(device);
   }
 
@@ -96,6 +105,16 @@ router.patch('/:id/lost-status', validateBody(lostStatusSchema), async (req, res
   device.lostAt = isLost ? new Date() : null;
   device.securityStatus = isLost ? 'stolen' : 'safe';
   await device.save();
+
+  recordAuditLog({
+    userId,
+    action: isLost ? 'device.marked_lost' : 'device.marked_found',
+    actorType: 'user',
+    description: `Device "${device.name}" marked as ${isLost ? 'lost/stolen' : 'found'}.`,
+    targetType: 'device',
+    targetId: device.deviceId
+  });
+
   res.json(device);
 });
 

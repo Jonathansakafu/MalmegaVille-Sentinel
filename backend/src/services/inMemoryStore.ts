@@ -271,3 +271,67 @@ export function listRecentUsbEvents(userId: string): { deviceName: string; descr
     .filter((event) => event.userId === userId)
     .map(({ deviceName, description, timestampUtc }) => ({ deviceName, description, timestampUtc }));
 }
+
+export interface InMemoryPushSubscription {
+  userId: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+const pushSubscriptions: InMemoryPushSubscription[] = [];
+
+export function listPushSubscriptionsForUser(userId: string): InMemoryPushSubscription[] {
+  return pushSubscriptions.filter((subscription) => subscription.userId === userId);
+}
+
+export function addPushSubscription(subscription: InMemoryPushSubscription): void {
+  const existingIndex = pushSubscriptions.findIndex((existing) => existing.endpoint === subscription.endpoint);
+  if (existingIndex !== -1) {
+    pushSubscriptions[existingIndex] = subscription;
+    return;
+  }
+  pushSubscriptions.push(subscription);
+}
+
+export function removePushSubscription(endpoint: string): void {
+  const index = pushSubscriptions.findIndex((subscription) => subscription.endpoint === endpoint);
+  if (index !== -1) {
+    pushSubscriptions.splice(index, 1);
+  }
+}
+
+export interface InMemoryAuditLog {
+  id: string;
+  userId: string;
+  action: string;
+  actorType: 'user' | 'agent' | 'system';
+  description: string;
+  targetType?: string;
+  targetId?: string;
+  ipAddress?: string;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+}
+
+const auditLogs: InMemoryAuditLog[] = [];
+let nextAuditLogId = 1;
+const MAX_AUDIT_LOGS_PER_USER = 200;
+
+export function addAuditLog(input: Omit<InMemoryAuditLog, 'id' | 'createdAt'>): InMemoryAuditLog {
+  const entry: InMemoryAuditLog = { ...input, id: String(nextAuditLogId++), createdAt: new Date() };
+  auditLogs.unshift(entry);
+
+  const forUser = auditLogs.filter((log) => log.userId === input.userId);
+  if (forUser.length > MAX_AUDIT_LOGS_PER_USER) {
+    for (const overflowLog of forUser.slice(MAX_AUDIT_LOGS_PER_USER)) {
+      const index = auditLogs.indexOf(overflowLog);
+      if (index !== -1) auditLogs.splice(index, 1);
+    }
+  }
+
+  return entry;
+}
+
+export function listAuditLogsForUser(userId: string, limit: number): InMemoryAuditLog[] {
+  return auditLogs.filter((log) => log.userId === userId).slice(0, limit);
+}

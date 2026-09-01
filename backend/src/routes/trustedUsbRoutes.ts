@@ -6,6 +6,7 @@ import { validateBody } from '../middleware/validate.js';
 import TrustedUsbDevice from '../models/TrustedUsbDevice.js';
 import SyncEvent from '../models/SyncEvent.js';
 import { dblessTestMode } from '../config.js';
+import { recordAuditLog } from '../services/auditLogService.js';
 import {
   listTrustedUsbDevices,
   findTrustedUsbDeviceByIdentifier,
@@ -53,6 +54,14 @@ router.post('/', validateBody(createTrustedUsbDeviceSchema), async (req, res) =>
       return res.status(409).json({ message: 'This USB device is already trusted.' });
     }
     const device = addTrustedUsbDevice(userId, identifier, label);
+    recordAuditLog({
+      userId,
+      action: 'usb.trust.added',
+      actorType: 'user',
+      description: `USB device "${label}" marked as trusted.`,
+      targetType: 'usbDevice',
+      targetId: identifier
+    });
     return res.status(201).json(device);
   }
 
@@ -62,6 +71,14 @@ router.post('/', validateBody(createTrustedUsbDeviceSchema), async (req, res) =>
   }
 
   const device = await TrustedUsbDevice.create({ userId, identifier, label });
+  recordAuditLog({
+    userId,
+    action: 'usb.trust.added',
+    actorType: 'user',
+    description: `USB device "${label}" marked as trusted.`,
+    targetType: 'usbDevice',
+    targetId: identifier
+  });
   res.status(201).json(device);
 });
 
@@ -76,6 +93,14 @@ router.delete('/:id', async (req, res) => {
     if (!removed) {
       return res.status(404).json({ message: 'Trusted device not found.' });
     }
+    recordAuditLog({
+      userId,
+      action: 'usb.trust.removed',
+      actorType: 'user',
+      description: 'A trusted USB device was removed.',
+      targetType: 'usbDevice',
+      targetId: req.params.id
+    });
     return res.status(204).send();
   }
 
@@ -83,6 +108,14 @@ router.delete('/:id', async (req, res) => {
   if (!result) {
     return res.status(404).json({ message: 'Trusted device not found.' });
   }
+  recordAuditLog({
+    userId,
+    action: 'usb.trust.removed',
+    actorType: 'user',
+    description: `USB device "${result.label}" removed from trusted list.`,
+    targetType: 'usbDevice',
+    targetId: result.identifier
+  });
   res.status(204).send();
 });
 

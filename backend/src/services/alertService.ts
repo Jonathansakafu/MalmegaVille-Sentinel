@@ -1,4 +1,5 @@
 import { sendAlertEmail, isEmailConfigured } from './emailService.js';
+import { sendPushNotification, PushDeliveryResult } from './pushService.js';
 import { getEffectiveNotificationSettings } from './notificationSettingsService.js';
 import { notificationLogoUrl, dashboardUrl } from '../config.js';
 
@@ -16,22 +17,33 @@ export interface EventAlertPayload {
 
 export interface NotificationDeliveryResult {
   email: { configured: boolean; sent: boolean; error?: string };
+  push: PushDeliveryResult;
 }
 
 export async function notifySecurityEvent(payload: EventAlertPayload): Promise<NotificationDeliveryResult> {
   const { alertEmailRecipient } = await getEffectiveNotificationSettings(payload.userId);
   const emailConfigured = isEmailConfigured(alertEmailRecipient);
 
-  if (!emailConfigured) {
-    console.warn(`No alert email configured for this account; alert not delivered: ${payload.eventType}`);
-    return {
-      email: { configured: false, sent: false }
-    };
-  }
-
   const eventTime = typeof payload.timestampUtc === 'string' ? new Date(payload.timestampUtc) : payload.timestampUtc;
   const safeSeverity = payload.severity ? payload.severity.charAt(0).toUpperCase() + payload.severity.slice(1).toLowerCase() : 'Informational';
   const subject = `MalmegaVille Sentinel Event: ${payload.eventType} [${safeSeverity}]`;
+
+  // Push is independent of email configuration - an account with push
+  // subscriptions but no alert email (or vice versa) should still get
+  // whichever channel it does have configured.
+  const pushResultPromise = sendPushNotification(payload.userId, {
+    title: `${payload.eventType} [${safeSeverity}]`,
+    body: `${payload.deviceName}: ${payload.description}`,
+    url: dashboardUrl
+  });
+
+  if (!emailConfigured) {
+    console.warn(`No alert email configured for this account; email alert not delivered: ${payload.eventType}`);
+    return {
+      email: { configured: false, sent: false },
+      push: await pushResultPromise
+    };
+  }
 
   const metadataHtml = payload.metadata
     ? Object.entries(payload.metadata)
@@ -82,6 +94,7 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
   }
 
   return {
-    email: { configured: emailConfigured, sent: emailSent, error: emailError }
+    email: { configured: emailConfigured, sent: emailSent, error: emailError },
+    push: await pushResultPromise
   };
 }

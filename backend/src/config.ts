@@ -42,3 +42,11 @@ export const ipGeolocationUrl = process.env.IP_GEOLOCATION_URL ?? 'http://ip-api
 // identifying User-Agent, which is why this is proxied server-side rather
 // than called directly from the browser.
 export const nominatimUrl = process.env.NOMINATIM_URL ?? 'https://nominatim.openstreetmap.org/reverse';
+
+// Web Push (browser push notifications, delivered even when the dashboard tab
+// is closed). Generate a pair with `npx web-push generate-vapid-keys`. Push is
+// simply unconfigured (silently skipped, like email with no recipient) until
+// both keys are set.
+export const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+export const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+export const vapidSubject = process.env.VAPID_SUBJECT ?? `mailto:no-reply@malmegaville.local`;

@@ -8,6 +8,7 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import { authLimiter, dashboardLimiter } from '../middleware/rateLimiters.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { recordAuditLog } from '../services/auditLogService.js';
 import {
   createUser,
   findUserByEmail,
@@ -76,6 +77,13 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req, 
     const user = createUser(email, passwordHash, username);
     const token = createToken(user.id);
 
+    recordAuditLog({
+      userId: user.id,
+      action: 'account.register',
+      actorType: 'user',
+      description: `Account registered for ${user.email}.`
+    });
+
     return res.status(201).json({ token, user: { email: user.email, id: user.id, username: user.username } });
   }
 
@@ -94,6 +102,13 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req, 
 
   const token = createToken(String(user._id));
 
+  recordAuditLog({
+    userId: String(user._id),
+    action: 'account.register',
+    actorType: 'user',
+    description: `Account registered for ${user.email}.`
+  });
+
   res.status(201).json({ token, user: { email: user.email, id: user._id, username: user.username } });
 });
 
@@ -110,11 +125,25 @@ router.post('/login', authLimiter, validateBody(credentialsSchema), async (req, 
     } else {
       const passwordMatches = await bcrypt.compare(password, user.passwordHash);
       if (!passwordMatches) {
+        recordAuditLog({
+          userId: user.id,
+          action: 'auth.login.failed',
+          actorType: 'user',
+          description: `Failed login attempt for ${user.email}.`
+        });
         return res.status(401).json({ message: 'Invalid credentials.' });
       }
     }
 
     const token = createToken(user.id);
+
+    recordAuditLog({
+      userId: user.id,
+      action: 'auth.login.success',
+      actorType: 'user',
+      description: `User ${user.username || user.email} signed in successfully.`
+    });
+
     return res.json({ token, user: { email: user.email, id: user.id, username: user.username ?? deriveDisplayName(user.email) } });
   }
 
@@ -125,10 +154,23 @@ router.post('/login', authLimiter, validateBody(credentialsSchema), async (req, 
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
   if (!passwordMatches) {
+    recordAuditLog({
+      userId: String(user._id),
+      action: 'auth.login.failed',
+      actorType: 'user',
+      description: `Failed login attempt for ${user.email}.`
+    });
     return res.status(401).json({ message: 'Invalid credentials.' });
   }
 
   const token = createToken(String(user._id));
+
+  recordAuditLog({
+    userId: String(user._id),
+    action: 'auth.login.success',
+    actorType: 'user',
+    description: `User ${user.username || user.email} signed in successfully.`
+  });
 
   notifySecurityEvent({
     userId: String(user._id),
@@ -162,6 +204,12 @@ router.patch('/username', authenticate, dashboardLimiter, validateBody(updateUse
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
+    recordAuditLog({
+      userId,
+      action: 'account.username_changed',
+      actorType: 'user',
+      description: `Username changed to ${username}.`
+    });
     return res.json({ username: user.username });
   }
 
@@ -174,6 +222,13 @@ router.patch('/username', authenticate, dashboardLimiter, validateBody(updateUse
   if (!user) {
     return res.status(404).json({ message: 'User not found.' });
   }
+
+  recordAuditLog({
+    userId,
+    action: 'account.username_changed',
+    actorType: 'user',
+    description: `Username changed to ${username}.`
+  });
 
   res.json({ username: user.username });
 });
@@ -213,6 +268,13 @@ router.patch('/password', authenticate, dashboardLimiter, validateBody(updatePas
   user.passwordHash = await bcrypt.hash(newPassword, 12);
   await user.save();
 
+  recordAuditLog({
+    userId,
+    action: 'account.password_changed',
+    actorType: 'user',
+    description: `The password for ${user.username || user.email} was changed.`
+  });
+
   notifySecurityEvent({
     userId,
     deviceName: user.username || user.email,
@@ -241,6 +303,13 @@ router.post('/logout', authenticate, async (req, res) => {
 
   const user = await User.findById(userId);
   const identity = user?.username || user?.email || 'Unknown user';
+
+  recordAuditLog({
+    userId,
+    action: 'auth.logout',
+    actorType: 'user',
+    description: `User ${identity} signed out of the portal.`
+  });
 
   notifySecurityEvent({
     userId,

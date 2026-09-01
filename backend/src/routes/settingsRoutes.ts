@@ -5,6 +5,7 @@ import { dashboardLimiter } from '../middleware/rateLimiters.js';
 import { validateBody } from '../middleware/validate.js';
 import NotificationSettings from '../models/NotificationSettings.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { recordAuditLog } from '../services/auditLogService.js';
 import { getNotificationSettingsForUser, saveNotificationSettingsForUser } from '../services/inMemoryStore.js';
 import { dblessTestMode } from '../config.js';
 
@@ -40,6 +41,13 @@ router.put('/notifications', validateBody(notificationSettingsSchema), async (re
   }
 
   const { alertEmailRecipient } = req.body;
+
+  recordAuditLog({
+    userId,
+    action: 'settings.notifications.updated',
+    actorType: 'user',
+    description: 'Notification settings were updated.'
+  });
 
   if (dblessTestMode) {
     return res.json(saveNotificationSettingsForUser(userId, { alertEmailRecipient }));

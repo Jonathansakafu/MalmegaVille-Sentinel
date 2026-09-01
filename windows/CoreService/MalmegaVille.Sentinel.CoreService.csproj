@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Windows 10 SDK-versioned TFM (rather than plain net8.0-windows) is required to
+         access WinRT APIs like Windows.Devices.Sms, used for the direct-modem SMS
+         fallback channel. -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <UseWindowsService>true</UseWindowsService>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

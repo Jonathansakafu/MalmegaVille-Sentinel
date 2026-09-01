@@ -14,6 +14,8 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import captureRoutes from './routes/captureRoutes.js';
 import trustedUsbRoutes from './routes/trustedUsbRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
+import pushRoutes from './routes/pushRoutes.js';
+import auditLogRoutes from './routes/auditLogRoutes.js';
 import { validateStartupConfig } from './startup.js';
 import { mongodbUri, dblessTestMode } from './config.js';
 
@@ -55,6 +57,8 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/captures', captureRoutes);
 app.use('/api/trusted-usb-devices', trustedUsbRoutes);
 app.use('/api/geocode', geocodeRoutes);
+app.use('/api/push', pushRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', application: 'malmegaville-sentinel-backend' });

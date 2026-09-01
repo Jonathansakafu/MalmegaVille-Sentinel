@@ -17,7 +17,12 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<PendingCaptureQueue>();
         services.AddSingleton<UsbCaptureService>();
         services.AddSingleton<RemovableDriveWatcher>();
+        services.AddSingleton<ConnectivityEngine>();
+        services.AddSingleton<SmsAlertSender>();
         services.AddHostedService<SystemMonitoringHostedService>();
+        services.AddHostedService<ProcessMonitorHostedService>();
+        services.AddHostedService<StartupAppMonitorHostedService>();
+        services.AddHostedService<SmsFallbackHostedService>();
     })
     .ConfigureLogging(logging =>
     {
