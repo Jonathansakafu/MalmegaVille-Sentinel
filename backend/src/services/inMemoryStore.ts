@@ -337,3 +337,45 @@ export function addAuditLog(input: Omit<InMemoryAuditLog, 'id' | 'createdAt'>): 
 export function listAuditLogsForUser(userId: string, limit: number): InMemoryAuditLog[] {
   return auditLogs.filter((log) => log.userId === userId).slice(0, limit);
 }
+
+export interface InMemoryMobileDevice {
+  id: string;
+  userId: string;
+  platform: 'android';
+  fcmToken: string;
+  deviceLabel: string;
+  lastSeenAt: Date;
+}
+
+const mobileDevices: InMemoryMobileDevice[] = [];
+let nextMobileDeviceId = 1;
+
+export function listMobileDevicesForUser(userId: string): InMemoryMobileDevice[] {
+  return mobileDevices.filter((device) => device.userId === userId);
+}
+
+export function upsertMobileDevice(input: {
+  userId: string;
+  platform: 'android';
+  fcmToken: string;
+  deviceLabel: string;
+}): InMemoryMobileDevice {
+  const existing = mobileDevices.find((device) => device.fcmToken === input.fcmToken);
+  if (existing) {
+    existing.userId = input.userId;
+    existing.deviceLabel = input.deviceLabel;
+    existing.lastSeenAt = new Date();
+    return existing;
+  }
+
+  const device: InMemoryMobileDevice = { ...input, id: String(nextMobileDeviceId++), lastSeenAt: new Date() };
+  mobileDevices.push(device);
+  return device;
+}
+
+export function removeMobileDeviceByToken(fcmToken: string): void {
+  const index = mobileDevices.findIndex((device) => device.fcmToken === fcmToken);
+  if (index !== -1) {
+    mobileDevices.splice(index, 1);
+  }
+}

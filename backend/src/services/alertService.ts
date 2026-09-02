@@ -1,6 +1,7 @@
 import { sendAlertEmail, isEmailConfigured } from './emailService.js';
 import { sendPushNotification, PushDeliveryResult } from './pushService.js';
 import { sendAlertSms, isSmsConfigured } from './smsService.js';
+import { sendSmsRelayPush, MobileRelayResult } from './mobilePushService.js';
 import { getEffectiveNotificationSettings } from './notificationSettingsService.js';
 import { notificationLogoUrl, dashboardUrl } from '../config.js';
 
@@ -20,6 +21,7 @@ export interface NotificationDeliveryResult {
   email: { configured: boolean; sent: boolean; error?: string };
   push: PushDeliveryResult;
   sms: { configured: boolean; sent: boolean; error?: string };
+  mobileRelay: MobileRelayResult;
 }
 
 export async function notifySecurityEvent(payload: EventAlertPayload): Promise<NotificationDeliveryResult> {
@@ -42,15 +44,14 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
     url: dashboardUrl
   });
 
+  const smsBody = `MalmegaVille Sentinel [${safeSeverity}]: ${payload.eventType} on ${payload.deviceName}. ${payload.description}`;
+
   const smsResultPromise = (async (): Promise<{ configured: boolean; sent: boolean; error?: string }> => {
     if (!smsConfigured) {
       return { configured: false, sent: false };
     }
     try {
-      await sendAlertSms({
-        recipient: alertPhoneNumber!,
-        body: `MalmegaVille Sentinel [${safeSeverity}]: ${payload.eventType} on ${payload.deviceName}. ${payload.description}`
-      });
+      await sendAlertSms({ recipient: alertPhoneNumber!, body: smsBody });
       return { configured: true, sent: true };
     } catch (error) {
       console.error('SMS alert failed', error);
@@ -58,12 +59,20 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
     }
   })();
 
+  // Alternative to the paid cloud SMS gateway above: relays through a
+  // companion Android app on a phone the account has paired, using that
+  // phone's own SIM instead of Twilio.
+  const mobileRelayResultPromise = alertPhoneNumber
+    ? sendSmsRelayPush(payload.userId, alertPhoneNumber, smsBody)
+    : Promise.resolve<MobileRelayResult>({ configured: false, sent: false });
+
   if (!emailConfigured) {
     console.warn(`No alert email configured for this account; email alert not delivered: ${payload.eventType}`);
     return {
       email: { configured: false, sent: false },
       push: await pushResultPromise,
-      sms: await smsResultPromise
+      sms: await smsResultPromise,
+      mobileRelay: await mobileRelayResultPromise
     };
   }
 
@@ -118,6 +127,7 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
   return {
     email: { configured: emailConfigured, sent: emailSent, error: emailError },
     push: await pushResultPromise,
-    sms: await smsResultPromise
+    sms: await smsResultPromise,
+    mobileRelay: await mobileRelayResultPromise
   };
 }

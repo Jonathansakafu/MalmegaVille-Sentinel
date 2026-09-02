@@ -64,3 +64,10 @@ export const vapidSubject = process.env.VAPID_SUBJECT ?? `mailto:no-reply@malmeg
 export const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 export const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
 export const twilioFromNumber = process.env.TWILIO_FROM_NUMBER;
+
+// Companion Android app relay: an alternative to a paid cloud SMS gateway -
+// the backend pushes a "send this SMS" instruction (via Firebase Cloud
+// Messaging) to a paired Android phone, which sends it through its own SIM.
+// Value is the raw JSON contents of a Firebase service account key (Project
+// Settings > Service accounts > Generate new private key), pasted in whole.
+export const firebaseServiceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;

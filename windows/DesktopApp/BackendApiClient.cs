@@ -14,7 +14,11 @@ public sealed record LoginResponse(string Token, LoginUser User);
 public sealed record NotificationSettingsDto(string AlertEmailRecipient, string AlertPhoneNumber);
 
 public sealed record NotificationChannelResult(bool Configured, bool Sent, string? Error);
-public sealed record NotificationTestResult(NotificationChannelResult Email, NotificationChannelResult Push, NotificationChannelResult Sms);
+public sealed record NotificationTestResult(
+    NotificationChannelResult Email,
+    NotificationChannelResult Push,
+    NotificationChannelResult Sms,
+    NotificationChannelResult MobileRelay);
 
 public sealed record LostStatusResponse(string DeviceId, bool IsLost);
 
@@ -178,7 +182,7 @@ public sealed class BackendApiClient
 
         var result = await response.Content.ReadFromJsonAsync<NotificationTestResult>(JsonOptions);
         var unconfigured = new NotificationChannelResult(false, false, null);
-        return result ?? new NotificationTestResult(unconfigured, unconfigured, unconfigured);
+        return result ?? new NotificationTestResult(unconfigured, unconfigured, unconfigured, unconfigured);
     }
 
     private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)

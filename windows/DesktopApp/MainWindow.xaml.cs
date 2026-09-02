@@ -509,7 +509,8 @@ public partial class MainWindow : Window
 
     private static string FormatTestResult(NotificationTestResult result)
     {
-        return $"{DescribeChannel("Email", result.Email)} · {DescribeChannel("Push", result.Push)} · {DescribeChannel("SMS", result.Sms)}";
+        return $"{DescribeChannel("Email", result.Email)} · {DescribeChannel("Push", result.Push)} · " +
+            $"{DescribeChannel("SMS", result.Sms)} · {DescribeChannel("Phone relay", result.MobileRelay)}";
     }
 
     private static string DescribeChannel(string name, NotificationChannelResult channel)

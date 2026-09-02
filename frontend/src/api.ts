@@ -126,6 +126,7 @@ export type NotificationTestResult = {
   email: NotificationChannelResult;
   push: NotificationChannelResult;
   sms: NotificationChannelResult;
+  mobileRelay: NotificationChannelResult;
 };
 
 export async function fetchNotificationSettings(token: string): Promise<NotificationSettings> {

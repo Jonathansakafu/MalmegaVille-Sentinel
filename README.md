@@ -21,11 +21,11 @@ MalmegaVille Sentinel is a personal endpoint security platform: it watches your 
 
 Whichever channel is actually available handles the alert:
 
-1. **Internet reaches the backend** (the common case — Wi-Fi, Ethernet, or cellular data) — every alert-worthy event fires email, browser push, *and* SMS (via a cloud gateway) together, for whichever of those an account has configured
+1. **Internet reaches the backend** (the common case — Wi-Fi, Ethernet, or cellular data) — every alert-worthy event fires email, browser push, *and* SMS together, for whichever of those an account has configured. SMS here can go out either via a paid cloud gateway (Twilio) or free via the **Android companion app** (`android/`) — a phone paired to the account relays the text through its own SIM, no per-message cost or gateway account needed
 2. **No internet, but the PC has a built-in WWAN/eSIM cellular modem** — High/Critical events are texted straight to your phone over the cellular network directly from the device, no internet required at all
 3. **Nothing available** — events stay in the encrypted local queue until connectivity returns, then sync in full
 
-Either way, the SMS recipient is just your account's own alert phone number (set at registration or from the dashboard's Settings panel) — synced to the device automatically, nothing to configure on the PC itself. Push notifications use the browser's Web Push API (enabled per-browser from the dashboard's Settings panel) rather than a dedicated mobile app.
+Either way, the SMS recipient is just your account's own alert phone number (set at registration or from the dashboard's Settings panel) — synced to the device automatically, nothing to configure on the PC itself. Push notifications use the browser's Web Push API (enabled per-browser from the dashboard's Settings panel); the Android app is specifically for the SMS relay, not a general mobile client (iOS isn't supported for this — Apple doesn't allow any app to send SMS silently).
 
 ### Audit logging
 

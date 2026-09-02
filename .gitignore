@@ -34,6 +34,14 @@ windows/install-run-log.txt
 # built installer itself is published as a GitHub Release asset, not committed.
 windows/Installer/Payload/*.zip
 
+# Android companion app
+android/local.properties
+android/.gradle/
+android/**/build/
+android/app/google-services.json
+!android/app/google-services.json.example
+*.apk
+
 # Logs
 *.log
 
