@@ -1,6 +1,6 @@
 # MalmegaVille Sentinel
 
-MalmegaVille Sentinel is a personal endpoint security platform: it watches your Windows PC for security events (logins, USB activity, suspicious process behavior, startup persistence), alerts you by email and browser push (with a direct-cellular SMS fallback when there's no internet at all), and — if the device is ever lost or stolen — silently captures a webcam photo, an approximate location, and copies files from any USB drive that gets inserted, so you have evidence to help recover it.
+MalmegaVille Sentinel is a personal endpoint security platform: it watches your Windows PC for security events (logins, USB activity, suspicious process behavior, startup persistence), alerts you by email, browser push, and SMS (even with no internet at all, directly from the device's own cellular modem if it has one), and — if the device is ever lost or stolen — silently captures a webcam photo, an approximate location, and copies files from any USB drive that gets inserted, so you have evidence to help recover it.
 
 **Live dashboard:** <https://app-production-fd2d.up.railway.app>
 
@@ -19,13 +19,13 @@ MalmegaVille Sentinel is a personal endpoint security platform: it watches your 
 
 ### Alerting channels
 
-Delivered in priority order, matching whichever channel is actually available:
+Whichever channel is actually available handles the alert:
 
-1. **Internet** (Wi-Fi, Ethernet, or cellular data) — full event sync to the backend, which emails and/or push-notifies you
-2. **Direct SMS** — if there's no internet route at all but the PC has a built-in WWAN/eSIM cellular modem, High/Critical events are texted straight to your phone over the cellular network, no internet required. The recipient number is your account's own alert phone number (set at registration or from the dashboard's Settings panel), synced to the device automatically — nothing to configure on the PC itself
-3. **Offline queue** — nothing available at all; events stay encrypted on disk until connectivity returns
+1. **Internet reaches the backend** (the common case — Wi-Fi, Ethernet, or cellular data) — every alert-worthy event fires email, browser push, *and* SMS (via a cloud gateway) together, for whichever of those an account has configured
+2. **No internet, but the PC has a built-in WWAN/eSIM cellular modem** — High/Critical events are texted straight to your phone over the cellular network directly from the device, no internet required at all
+3. **Nothing available** — events stay in the encrypted local queue until connectivity returns, then sync in full
 
-Push notifications use the browser's Web Push API (enabled per-browser from the dashboard's Settings panel) rather than a dedicated mobile app.
+Either way, the SMS recipient is just your account's own alert phone number (set at registration or from the dashboard's Settings panel) — synced to the device automatically, nothing to configure on the PC itself. Push notifications use the browser's Web Push API (enabled per-browser from the dashboard's Settings panel) rather than a dedicated mobile app.
 
 ### Audit logging
 
@@ -89,7 +89,7 @@ The SMS fallback channel (see [Alerting channels](#alerting-channels) above) nee
 
 The whole system (backend + frontend + MongoDB) deploys as a single Railway project, auto-deploying on every push to `main`. The root `package.json` builds the frontend, then the backend, and the backend serves the built frontend directly — no separate frontend host or CORS configuration needed. See `backend/.env.example` for the full list of production environment variables (`DASHBOARD_URL`, `CAPTURE_STORAGE_DIR`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`, etc.).
 
-`SYNC_TOKEN` is deliberately left unset in production: it would need to be baked into the publicly downloadable Windows installer to work, which would defeat the point of it being a secret, so agent-to-backend requests are scoped by each device's own unguessable ID instead. Push notifications (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`) are optional and simply disabled, exactly like email with no recipient configured, until its keys are set. The SMS fallback channel's recipient number is a normal per-account Setting, not an environment variable at all.
+`SYNC_TOKEN` is deliberately left unset in production: it would need to be baked into the publicly downloadable Windows installer to work, which would defeat the point of it being a secret, so agent-to-backend requests are scoped by each device's own unguessable ID instead. Push notifications (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`) and cloud SMS (`TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM_NUMBER`) are both optional and simply disabled, exactly like email with no recipient configured, until they're set. Every alert recipient (email, phone number) is a normal per-account Setting, not an environment variable.
 
 The Windows agent (`windows/`) is distributed separately from the Railway deploy, as a one-click installer (`MalmegaVilleSentinelSetup.exe`) published as a GitHub Release asset — see `windows/Installer/README.md` for how to rebuild and re-publish it after agent-side changes, then update the release and the Download page's link.
 

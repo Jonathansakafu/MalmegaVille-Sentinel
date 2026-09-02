@@ -27,6 +27,12 @@ public partial class MainWindow : Window
     private string? _authEmail;
     private bool _isExiting;
 
+    // Round-tripped on save even though this app has no UI field to edit it -
+    // set from the dashboard's Settings panel instead. Without this, saving
+    // email settings here would silently wipe the account's phone number,
+    // since PUT /settings/notifications replaces the whole record.
+    private string _lastKnownPhoneNumber = string.Empty;
+
     private readonly DispatcherTimer _usbPollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private HashSet<string> _lastRemovableDrives = new();
     private bool _captureInProgress;
@@ -412,6 +418,7 @@ public partial class MainWindow : Window
         AuthTokenStore.Clear();
 
         AlertEmailTextBox.Text = string.Empty;
+        _lastKnownPhoneNumber = string.Empty;
         SettingsStatusText.Text = string.Empty;
 
         UpdateAccountUi();
@@ -430,6 +437,7 @@ public partial class MainWindow : Window
         {
             var settings = await _apiClient.GetNotificationSettingsAsync(_authToken);
             AlertEmailTextBox.Text = settings.AlertEmailRecipient;
+            _lastKnownPhoneNumber = settings.AlertPhoneNumber;
             SettingsStatusText.Text = string.Empty;
         }
         catch (UnauthorizedApiException)
@@ -455,9 +463,10 @@ public partial class MainWindow : Window
 
         try
         {
-            var settings = new NotificationSettingsDto(AlertEmailTextBox.Text.Trim());
+            var settings = new NotificationSettingsDto(AlertEmailTextBox.Text.Trim(), _lastKnownPhoneNumber);
 
-            await _apiClient.SaveNotificationSettingsAsync(_authToken, settings);
+            var saved = await _apiClient.SaveNotificationSettingsAsync(_authToken, settings);
+            _lastKnownPhoneNumber = saved.AlertPhoneNumber;
             SettingsStatusText.Text = "Settings saved.";
         }
         catch (Exception ex)
@@ -500,7 +509,7 @@ public partial class MainWindow : Window
 
     private static string FormatTestResult(NotificationTestResult result)
     {
-        return DescribeChannel("Email", result.Email);
+        return $"{DescribeChannel("Email", result.Email)} · {DescribeChannel("Push", result.Push)} · {DescribeChannel("SMS", result.Sms)}";
     }
 
     private static string DescribeChannel(string name, NotificationChannelResult channel)

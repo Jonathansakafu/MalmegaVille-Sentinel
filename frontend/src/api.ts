@@ -122,7 +122,11 @@ export type NotificationSettings = {
 };
 
 export type NotificationChannelResult = { configured: boolean; sent: boolean; error?: string };
-export type NotificationTestResult = { email: NotificationChannelResult; push: NotificationChannelResult };
+export type NotificationTestResult = {
+  email: NotificationChannelResult;
+  push: NotificationChannelResult;
+  sms: NotificationChannelResult;
+};
 
 export async function fetchNotificationSettings(token: string): Promise<NotificationSettings> {
   return request('/api/settings/notifications', {

@@ -56,3 +56,11 @@ export const nominatimUrl = process.env.NOMINATIM_URL ?? 'https://nominatim.open
 export const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 export const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 export const vapidSubject = process.env.VAPID_SUBJECT ?? `mailto:no-reply@malmegaville.local`;
+
+// Cloud SMS delivery (Twilio) - fires alongside email/push for every
+// alert-worthy event whenever the backend is reachable at all, independent
+// of the Windows agent's own offline-only direct-modem SMS fallback. Simply
+// unconfigured, like email with no recipient, until all three are set.
+export const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+export const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+export const twilioFromNumber = process.env.TWILIO_FROM_NUMBER;

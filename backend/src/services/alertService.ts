@@ -1,5 +1,6 @@
 import { sendAlertEmail, isEmailConfigured } from './emailService.js';
 import { sendPushNotification, PushDeliveryResult } from './pushService.js';
+import { sendAlertSms, isSmsConfigured } from './smsService.js';
 import { getEffectiveNotificationSettings } from './notificationSettingsService.js';
 import { notificationLogoUrl, dashboardUrl } from '../config.js';
 
@@ -18,30 +19,51 @@ export interface EventAlertPayload {
 export interface NotificationDeliveryResult {
   email: { configured: boolean; sent: boolean; error?: string };
   push: PushDeliveryResult;
+  sms: { configured: boolean; sent: boolean; error?: string };
 }
 
 export async function notifySecurityEvent(payload: EventAlertPayload): Promise<NotificationDeliveryResult> {
-  const { alertEmailRecipient } = await getEffectiveNotificationSettings(payload.userId);
+  const { alertEmailRecipient, alertPhoneNumber } = await getEffectiveNotificationSettings(payload.userId);
   const emailConfigured = isEmailConfigured(alertEmailRecipient);
+  const smsConfigured = isSmsConfigured(alertPhoneNumber);
 
   const eventTime = typeof payload.timestampUtc === 'string' ? new Date(payload.timestampUtc) : payload.timestampUtc;
   const safeSeverity = payload.severity ? payload.severity.charAt(0).toUpperCase() + payload.severity.slice(1).toLowerCase() : 'Informational';
   const subject = `MalmegaVille Sentinel Event: ${payload.eventType} [${safeSeverity}]`;
 
-  // Push is independent of email configuration - an account with push
-  // subscriptions but no alert email (or vice versa) should still get
-  // whichever channel it does have configured.
+  // Push and SMS are both independent of email configuration - an account
+  // missing one channel's setup should still get whichever channels it does
+  // have configured. Unlike the Windows agent's own offline-only direct-modem
+  // SMS fallback, this cloud path fires for every alert-worthy event whenever
+  // the backend itself is reachable, which is the common case.
   const pushResultPromise = sendPushNotification(payload.userId, {
     title: `${payload.eventType} [${safeSeverity}]`,
     body: `${payload.deviceName}: ${payload.description}`,
     url: dashboardUrl
   });
 
+  const smsResultPromise = (async (): Promise<{ configured: boolean; sent: boolean; error?: string }> => {
+    if (!smsConfigured) {
+      return { configured: false, sent: false };
+    }
+    try {
+      await sendAlertSms({
+        recipient: alertPhoneNumber!,
+        body: `MalmegaVille Sentinel [${safeSeverity}]: ${payload.eventType} on ${payload.deviceName}. ${payload.description}`
+      });
+      return { configured: true, sent: true };
+    } catch (error) {
+      console.error('SMS alert failed', error);
+      return { configured: true, sent: false, error: String(error) };
+    }
+  })();
+
   if (!emailConfigured) {
     console.warn(`No alert email configured for this account; email alert not delivered: ${payload.eventType}`);
     return {
       email: { configured: false, sent: false },
-      push: await pushResultPromise
+      push: await pushResultPromise,
+      sms: await smsResultPromise
     };
   }
 
@@ -95,6 +117,7 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
 
   return {
     email: { configured: emailConfigured, sent: emailSent, error: emailError },
-    push: await pushResultPromise
+    push: await pushResultPromise,
+    sms: await smsResultPromise
   };
 }

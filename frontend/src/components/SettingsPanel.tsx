@@ -543,7 +543,9 @@ function SettingsPanel({
     setStatus('Sending test alert...');
     try {
       const result: NotificationTestResult = await sendTestAlert(token);
-      setStatus(`${describeChannel('Email', result.email)} · ${describeChannel('Push', result.push)}`);
+      setStatus(
+        `${describeChannel('Email', result.email)} · ${describeChannel('Push', result.push)} · ${describeChannel('SMS', result.sms)}`
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Failed to send test alert.');
     } finally {
