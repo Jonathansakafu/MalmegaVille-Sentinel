@@ -138,6 +138,7 @@ function DashboardPage({
             token={token}
             deviceFilter={capturesDeviceFilter}
             onDeviceFilterChange={setCapturesDeviceFilter}
+            onCaptureDeleted={(id) => setCaptures((prev) => prev.filter((c) => (c._id ?? c.id) !== id))}
           />
         ) : activeTab === 'settings' ? (
           <SettingsPanel token={token} username={username} onUsernameChange={onUsernameChange} />

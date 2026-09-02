@@ -177,6 +177,13 @@ export function findCaptureByIdForUser(id: string, userId: string): InMemoryCapt
   return captures.find((capture) => capture.id === id && capture.userId === userId);
 }
 
+export function removeCaptureByIdForUser(id: string, userId: string): boolean {
+  const index = captures.findIndex((capture) => capture.id === id && capture.userId === userId);
+  if (index === -1) return false;
+  captures.splice(index, 1);
+  return true;
+}
+
 export interface InMemoryIncident {
   id: string;
   deviceId: string;

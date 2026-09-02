@@ -19,11 +19,13 @@ import {
   ipGeolocationUrl
 } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { recordAuditLog } from '../services/auditLogService.js';
 import {
   findDeviceByDeviceId,
   addInMemoryCapture,
   listCapturesForUser,
   findCaptureByIdForUser,
+  removeCaptureByIdForUser,
   sumSessionBytes
 } from '../services/inMemoryStore.js';
 
@@ -356,6 +358,47 @@ router.get('/:id/content', authenticate, dashboardLimiter, async (req, res) => {
 
   res.setHeader('Content-Type', capture.mimeType ?? 'application/octet-stream');
   fs.createReadStream(absPath).pipe(res);
+});
+
+// DELETE /api/captures/:id - JWT authed, removes the record and its stored
+// file (if any). Scoped to the requesting account's own captures only.
+router.delete('/:id', authenticate, dashboardLimiter, async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const capture = dblessTestMode
+    ? findCaptureByIdForUser(req.params.id, userId)
+    : await Capture.findOne({ _id: req.params.id, userId });
+
+  if (!capture) {
+    return res.status(404).json({ message: 'Not found.' });
+  }
+
+  if (capture.storagePath) {
+    const absPath = path.join(captureStorageDir, path.basename(capture.storagePath));
+    fs.rm(absPath, { force: true }, () => {
+      // Best effort - a missing file shouldn't block deleting the record.
+    });
+  }
+
+  if (dblessTestMode) {
+    removeCaptureByIdForUser(req.params.id, userId);
+  } else {
+    await Capture.deleteOne({ _id: req.params.id, userId });
+  }
+
+  recordAuditLog({
+    userId,
+    action: 'capture.deleted',
+    actorType: 'user',
+    description: `Deleted a ${capture.captureType} capture for device ${capture.deviceId}.`,
+    targetType: 'capture',
+    targetId: req.params.id
+  });
+
+  res.status(204).send();
 });
 
 export default router;

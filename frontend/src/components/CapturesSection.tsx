@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, MapPin, FileArchive, Download, X, Navigation } from 'lucide-react';
-import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode } from '../api';
+import { Camera, MapPin, FileArchive, Download, X, Navigation, Trash2 } from 'lucide-react';
+import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode, deleteCapture } from '../api';
 import StatusBadge from './StatusBadge';
 import RouteMap, { RouteOption, fetchRouteOptions } from './RouteMap';
 
@@ -238,19 +238,65 @@ function LocationSummary({ location, token }: { location: Capture; token: string
   );
 }
 
+function CaptureDeleteButton({
+  captureId,
+  token,
+  label = 'Delete',
+  onDeleted
+}: {
+  captureId: string;
+  token: string;
+  label?: string;
+  onDeleted: (id: string) => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!window.confirm('Delete this capture permanently? This cannot be undone.')) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteCapture(token, captureId);
+      onDeleted(captureId);
+    } catch {
+      // Best effort - leaves the item in place if it fails, no separate error UI needed here.
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={deleting}
+      type="button"
+      className="flex items-center gap-1 text-rose-400 transition hover:text-rose-300 disabled:opacity-50"
+    >
+      <Trash2 size={14} />
+      {deleting ? 'Deleting…' : label}
+    </button>
+  );
+}
+
 function CaptureDetailModal({
   capture,
   imageUrl,
   nearestLocation,
   token,
-  onClose
+  onClose,
+  onDeleted
 }: {
   capture: Capture;
   imageUrl: string | null;
   nearestLocation?: Capture;
   token: string;
   onClose: () => void;
+  onDeleted: (id: string) => void;
 }) {
+  const captureId = capture._id ?? capture.id;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
@@ -261,11 +307,23 @@ function CaptureDetailModal({
         onClick={(e) => e.stopPropagation()}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-800 bg-brand-panel p-5 shadow-2xl"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-white">Capture details</h3>
-          <button onClick={onClose} type="button" className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            {captureId ? (
+              <CaptureDeleteButton
+                captureId={captureId}
+                token={token}
+                onDeleted={(id) => {
+                  onDeleted(id);
+                  onClose();
+                }}
+              />
+            ) : null}
+            <button onClick={onClose} type="button" className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {imageUrl ? (
@@ -310,13 +368,15 @@ function CapturesSection({
   devices,
   token,
   deviceFilter,
-  onDeviceFilterChange
+  onDeviceFilterChange,
+  onCaptureDeleted
 }: {
   captures: Capture[];
   devices: Device[];
   token: string;
   deviceFilter?: string;
   onDeviceFilterChange: (deviceId: string | undefined) => void;
+  onCaptureDeleted: (id: string) => void;
 }) {
   const [selected, setSelected] = useState<Capture | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
@@ -435,9 +495,14 @@ function CapturesSection({
                           {file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'} ·{' '}
                           {file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}
                         </span>
-                        {!file.skipped && (file._id ?? file.id) ? (
-                          <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
-                        ) : null}
+                        <div className="flex items-center gap-3">
+                          {!file.skipped && (file._id ?? file.id) ? (
+                            <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
+                          ) : null}
+                          {file._id ?? file.id ? (
+                            <CaptureDeleteButton captureId={(file._id ?? file.id) as string} token={token} onDeleted={onCaptureDeleted} />
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -451,7 +516,8 @@ function CapturesSection({
                         <th className="pb-2 pr-4">Path</th>
                         <th className="pb-2 pr-4">Size</th>
                         <th className="pb-2 pr-4">Status</th>
-                        <th className="pb-2">Content</th>
+                        <th className="pb-2 pr-4">Content</th>
+                        <th className="pb-2">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -461,12 +527,17 @@ function CapturesSection({
                           <td className="py-2 pr-4 text-slate-400">{file.originalPath ?? '—'}</td>
                           <td className="py-2 pr-4">{file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'}</td>
                           <td className="py-2 pr-4">{file.skipped ? `Skipped (${file.skipReason ?? 'unknown'})` : 'Copied'}</td>
-                          <td className="py-2">
+                          <td className="py-2 pr-4">
                             {!file.skipped && (file._id ?? file.id) ? (
                               <CaptureDownloadLink captureId={(file._id ?? file.id) as string} token={token} fileName={file.originalFileName} />
                             ) : (
                               '—'
                             )}
+                          </td>
+                          <td className="py-2">
+                            {file._id ?? file.id ? (
+                              <CaptureDeleteButton captureId={(file._id ?? file.id) as string} token={token} label="" onDeleted={onCaptureDeleted} />
+                            ) : null}
                           </td>
                         </tr>
                       ))}
@@ -486,6 +557,7 @@ function CapturesSection({
           nearestLocation={selected.captureType === 'location' ? selected : findNearestLocation(selected, captures)}
           token={token}
           onClose={() => setSelected(null)}
+          onDeleted={onCaptureDeleted}
         />
       ) : null}
     </section>

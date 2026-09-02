@@ -116,6 +116,17 @@ export async function fetchCaptureBlobUrl(token: string, captureId: string): Pro
   return URL.createObjectURL(blob);
 }
 
+export async function deleteCapture(token: string, captureId: string): Promise<void> {
+  const response = await fetch(`/api/captures/${captureId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message ?? 'Failed to delete capture.');
+  }
+}
+
 export type NotificationSettings = {
   alertEmailRecipient: string;
   alertPhoneNumber: string;
