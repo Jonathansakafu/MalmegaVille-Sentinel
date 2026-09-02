@@ -39,7 +39,7 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
           </p>
         </section>
 
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div
             className={`rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 sm:p-8 ${
               detected === 'windows' ? 'ring-2 ring-brand-green' : ''
@@ -111,6 +111,25 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             <h2 className="mt-5 text-xl font-semibold text-white">macOS</h2>
             <p className="mt-2 text-sm text-slate-400">
               A native Mac agent is in development. Sign up now and we'll let you know the moment it's ready.
+            </p>
+            <button
+              disabled
+              type="button"
+              className="mt-6 flex min-h-[48px] w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-slate-700 px-6 py-3 text-sm font-semibold text-slate-400"
+            >
+              <Clock size={16} />
+              Coming Soon
+            </button>
+          </div>
+
+          <div className="rounded-3xl bg-brand-panel p-6 opacity-80 shadow-lg shadow-black/30 sm:p-8">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800 text-slate-400">
+              <Apple size={22} />
+            </span>
+            <h2 className="mt-5 text-xl font-semibold text-white">iOS Companion</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Apple doesn't allow apps to send SMS silently, so the iPhone app will deliver push notification
+              alerts instead. Sign up now and we'll let you know the moment it's ready.
             </p>
             <button
               disabled
