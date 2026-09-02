@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Apple, Clock, ShieldCheck } from 'lucide-react';
+import { Download, Apple, Clock, ShieldCheck, Smartphone } from 'lucide-react';
 import PublicNav from '../components/PublicNav';
 
 // Zipped rather than a bare .exe link: Chrome (and some other browsers)
@@ -8,6 +8,9 @@ import PublicNav from '../components/PublicNav';
 // wrapping it in a .zip avoids that extra friction.
 const WINDOWS_INSTALLER_URL =
   'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/windows-agent-v1.0.0/MalmegaVilleSentinelSetup.zip';
+
+const ANDROID_APP_URL =
+  'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/android-app-v1.0.0/app-debug.apk';
 
 function detectPlatform(): 'windows' | 'mac' | 'other' {
   const platform = navigator.userAgent || '';
@@ -36,7 +39,7 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
           </p>
         </section>
 
-        <section className="grid gap-6 sm:grid-cols-2">
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div
             className={`rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 sm:p-8 ${
               detected === 'windows' ? 'ring-2 ring-brand-green' : ''
@@ -78,6 +81,27 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
                 </a>
               </p>
             </div>
+          </div>
+
+          <div className="rounded-3xl bg-brand-panel p-6 shadow-lg shadow-black/30 sm:p-8">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-green/10 text-brand-green">
+              <Smartphone size={22} />
+            </span>
+            <h2 className="mt-5 text-xl font-semibold text-white">Android Companion</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Optional — pair a phone to relay SMS alerts through its own SIM, free, no gateway account needed. Not
+              required for core monitoring.
+            </p>
+            <a
+              href={ANDROID_APP_URL}
+              className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-brand-green px-6 py-3 text-sm font-semibold text-black transition hover:bg-white"
+            >
+              <Download size={16} />
+              Download APK
+            </a>
+            <p className="mt-3 text-center text-xs text-slate-500">
+              You'll need to allow "install unknown apps" for your browser — Android will prompt you the first time.
+            </p>
           </div>
 
           <div className="rounded-3xl bg-brand-panel p-6 opacity-80 shadow-lg shadow-black/30 sm:p-8">
