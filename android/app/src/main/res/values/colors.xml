@@ -11,4 +11,17 @@
     <color name="text_muted">#94A3B8</color>
     <color name="text_hint">#64748B</color>
     <color name="status_error">#FB7185</color>
+
+    <!-- Tailwind slate/sky/amber/rose shades used by StatCard/StatusBadge/
+         DeviceCard on the web dashboard - kept under the same names so a
+         reviewer can match a color here back to its Tailwind class there. -->
+    <color name="slate_100">#F1F5F9</color>
+    <color name="slate_300">#CBD5E1</color>
+    <color name="slate_800">#1E293B</color>
+    <color name="slate_900">#0F172A</color>
+    <color name="slate_950">#020617</color>
+    <color name="sky_400">#38BDF8</color>
+    <color name="amber_400">#FBBF24</color>
+    <color name="rose_400">#FB7185</color>
+    <color name="rose_500">#F43F5E</color>
 </resources>

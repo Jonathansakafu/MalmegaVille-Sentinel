@@ -188,8 +188,11 @@ class MainActivity : AppCompatActivity() {
             setStatus("Not signed in.")
             return
         }
-        setStatus("Signed in. Re-pairing device...")
-        registerDeviceToken(token)
+        // Already signed in - go straight to the dashboard, same as any app
+        // that remembers you; re-pairing (in case the push token rotated)
+        // happens quietly in the background rather than blocking navigation.
+        registerDeviceToken(token, silent = true)
+        goToDashboard()
     }
 
     private fun signInAndPair() {
@@ -206,12 +209,17 @@ class MainActivity : AppCompatActivity() {
             try {
                 val token = withContext(Dispatchers.IO) { login(email, password) }
                 prefs.edit().putString(SentinelPrefs.KEY_AUTH_TOKEN, token).apply()
-                setStatus("Signed in. Pairing device...")
-                registerDeviceToken(token)
+                registerDeviceToken(token, silent = true)
+                goToDashboard()
             } catch (e: Exception) {
                 setStatus("Sign-in failed: ${e.message}", StatusTone.ERROR)
             }
         }
+    }
+
+    private fun goToDashboard() {
+        startActivity(android.content.Intent(this, DashboardActivity::class.java))
+        finish()
     }
 
     private fun login(email: String, password: String): String {
@@ -232,10 +240,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun registerDeviceToken(authToken: String) {
+    private fun registerDeviceToken(authToken: String, silent: Boolean = false) {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
-                setStatus("Could not get a push token: ${task.exception?.message}", StatusTone.ERROR)
+                if (!silent) setStatus("Could not get a push token: ${task.exception?.message}", StatusTone.ERROR)
                 return@addOnCompleteListener
             }
             val fcmToken = task.result
@@ -243,12 +251,16 @@ class MainActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     SentinelPrefs.registerDeviceWithBackend(httpClient, authToken, fcmToken)
-                    withContext(Dispatchers.Main) {
-                        setStatus("Paired. This phone will relay SMS alerts when needed.", StatusTone.SUCCESS)
+                    if (!silent) {
+                        withContext(Dispatchers.Main) {
+                            setStatus("Paired. This phone will relay SMS alerts when needed.", StatusTone.SUCCESS)
+                        }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        setStatus("Pairing failed: ${e.message}", StatusTone.ERROR)
+                    if (!silent) {
+                        withContext(Dispatchers.Main) {
+                            setStatus("Pairing failed: ${e.message}", StatusTone.ERROR)
+                        }
                     }
                 }
             }

@@ -20,6 +20,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".DashboardActivity" android:exported="false" />
+
         <!-- Receives the "send this SMS" push from the backend and relays it
              through this phone's own SIM - see mobilePushService.ts. -->
         <service
