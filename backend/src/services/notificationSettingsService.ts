@@ -5,16 +5,18 @@ import { getNotificationSettingsForUser as getInMemorySettingsForUser } from './
 
 export interface EffectiveNotificationSettings {
   alertEmailRecipient?: string;
+  alertPhoneNumber?: string;
 }
 
-// Each account configures its own alert email; settings are looked up by the
-// owning userId so one user's recipient is never used for another user's
-// alerts.
+// Each account configures its own alert email/phone; settings are looked up
+// by the owning userId so one user's recipient is never used for another
+// user's alerts.
 export async function getEffectiveNotificationSettings(userId: string): Promise<EffectiveNotificationSettings> {
   if (dblessTestMode) {
     const settings = getInMemorySettingsForUser(userId);
     return {
-      alertEmailRecipient: settings.alertEmailRecipient || undefined
+      alertEmailRecipient: settings.alertEmailRecipient || undefined,
+      alertPhoneNumber: settings.alertPhoneNumber || undefined
     };
   }
 
@@ -24,6 +26,7 @@ export async function getEffectiveNotificationSettings(userId: string): Promise<
 
   const settings = await NotificationSettings.findOne({ userId });
   return {
-    alertEmailRecipient: settings?.alertEmailRecipient || undefined
+    alertEmailRecipient: settings?.alertEmailRecipient || undefined,
+    alertPhoneNumber: settings?.alertPhoneNumber || undefined
   };
 }

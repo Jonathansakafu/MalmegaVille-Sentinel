@@ -17,21 +17,20 @@ public sealed class SmsAlertSender
     private const int MaxMessageLength = 320;
 
     private readonly ILogger<SmsAlertSender> _logger;
-    private readonly string? _ownerPhoneNumber;
 
     public SmsAlertSender(ILogger<SmsAlertSender> logger)
     {
         _logger = logger;
-        _ownerPhoneNumber = Environment.GetEnvironmentVariable("SENTINEL_OWNER_SMS_NUMBER");
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(_ownerPhoneNumber);
-
-    public async Task<bool> TrySendAsync(SecurityEvent securityEvent, CancellationToken cancellationToken)
+    // The owner's phone number comes from their account Settings (synced via
+    // LostStatusClient), not a local env var - nothing to configure on the PC
+    // itself for this to work.
+    public async Task<bool> TrySendAsync(SecurityEvent securityEvent, string? ownerPhoneNumber, CancellationToken cancellationToken)
     {
-        if (!IsConfigured)
+        if (string.IsNullOrWhiteSpace(ownerPhoneNumber))
         {
-            _logger.LogDebug("SMS fallback not configured; SENTINEL_OWNER_SMS_NUMBER is not set.");
+            _logger.LogDebug("SMS fallback skipped: no alert phone number configured on this account.");
             return false;
         }
 
@@ -48,7 +47,7 @@ public sealed class SmsAlertSender
             var smsDevice = await SmsDevice.FromIdAsync(devices[0].Id);
             var message = new SmsTextMessage
             {
-                To = _ownerPhoneNumber,
+                To = ownerPhoneNumber,
                 Body = BuildMessageBody(securityEvent)
             };
 

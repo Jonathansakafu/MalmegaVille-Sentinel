@@ -22,18 +22,21 @@ public sealed class SmsFallbackHostedService : BackgroundService
     private readonly ConnectivityEngine _connectivityEngine;
     private readonly OfflineEventQueue _offlineQueue;
     private readonly SmsAlertSender _smsAlertSender;
+    private readonly LostStatusClient _lostStatusClient;
     private readonly string _alertedIdsPath;
 
     public SmsFallbackHostedService(
         ILogger<SmsFallbackHostedService> logger,
         ConnectivityEngine connectivityEngine,
         OfflineEventQueue offlineQueue,
-        SmsAlertSender smsAlertSender)
+        SmsAlertSender smsAlertSender,
+        LostStatusClient lostStatusClient)
     {
         _logger = logger;
         _connectivityEngine = connectivityEngine;
         _offlineQueue = offlineQueue;
         _smsAlertSender = smsAlertSender;
+        _lostStatusClient = lostStatusClient;
 
         var basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "MalmegaVille Sentinel");
         Directory.CreateDirectory(basePath);
@@ -42,12 +45,6 @@ public sealed class SmsFallbackHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_smsAlertSender.IsConfigured)
-        {
-            _logger.LogInformation("SMS fallback channel disabled: SENTINEL_OWNER_SMS_NUMBER is not configured.");
-            return;
-        }
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -65,6 +62,16 @@ public sealed class SmsFallbackHostedService : BackgroundService
 
     private async Task RunCycleAsync(CancellationToken stoppingToken)
     {
+        // The owner's phone number comes from their account Settings, learned
+        // via LostStatusClient's own periodic poll (piggybacked on the same
+        // request as the lost-status check) - not known until that poll has
+        // run at least once, and simply absent if the owner never set one.
+        var ownerPhoneNumber = _lostStatusClient.LastKnownOwnerPhoneNumber;
+        if (string.IsNullOrWhiteSpace(ownerPhoneNumber))
+        {
+            return;
+        }
+
         var channel = await _connectivityEngine.GetCurrentChannelAsync(stoppingToken);
         if (channel != ConnectivityChannel.SmsOnly)
         {
@@ -97,7 +104,7 @@ public sealed class SmsFallbackHostedService : BackgroundService
                 continue;
             }
 
-            var sent = await _smsAlertSender.TrySendAsync(securityEvent, stoppingToken);
+            var sent = await _smsAlertSender.TrySendAsync(securityEvent, ownerPhoneNumber, stoppingToken);
             if (sent)
             {
                 alertedIds.Add(securityEvent.Id);

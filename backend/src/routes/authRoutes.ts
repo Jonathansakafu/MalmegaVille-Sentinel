@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import User from '../models/User.js';
+import NotificationSettings from '../models/NotificationSettings.js';
 import { jwtSecret, dblessTestMode } from '../config.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authLimiter, dashboardLimiter } from '../middleware/rateLimiters.js';
@@ -15,7 +16,8 @@ import {
   findUserById,
   findUserByUsername,
   updateUsername,
-  updatePasswordHash
+  updatePasswordHash,
+  saveNotificationSettingsForUser
 } from '../services/inMemoryStore.js';
 
 const router = Router();
@@ -32,8 +34,19 @@ const credentialsSchema = z.object({
   password: z.string().min(8)
 });
 
+// E.164 format (e.g. +15551234567) - the format the device's own cellular
+// modem needs to address an SMS directly, with no internet involved.
+const phoneNumberSchema = z.union([
+  z.literal(''),
+  z.string().trim().regex(/^\+[1-9]\d{6,14}$/, 'Use international format, e.g. +15551234567.')
+]);
+
 const registerSchema = credentialsSchema.extend({
-  username: usernameSchema
+  username: usernameSchema,
+  // Optional: lets an owner receive High/Critical alerts by SMS directly
+  // from a lost/stolen device's own cellular modem, even with no internet.
+  // Can also be added/changed later from the dashboard's Settings panel.
+  phoneNumber: phoneNumberSchema.optional()
 });
 
 const updateUsernameSchema = z.object({
@@ -63,7 +76,7 @@ function createToken(userId: string) {
 }
 
 router.post('/register', authLimiter, validateBody(registerSchema), async (req, res) => {
-  const { email, password, username } = req.body;
+  const { email, password, username, phoneNumber } = req.body;
 
   if (dblessTestMode) {
     if (findUserByEmail(email)) {
@@ -76,6 +89,10 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req, 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = createUser(email, passwordHash, username);
     const token = createToken(user.id);
+
+    if (phoneNumber) {
+      saveNotificationSettingsForUser(user.id, { alertEmailRecipient: '', alertPhoneNumber: phoneNumber });
+    }
 
     recordAuditLog({
       userId: user.id,
@@ -101,6 +118,14 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req, 
   await user.save();
 
   const token = createToken(String(user._id));
+
+  if (phoneNumber) {
+    await NotificationSettings.findOneAndUpdate(
+      { userId: user._id },
+      { userId: user._id, alertPhoneNumber: phoneNumber, updatedAt: new Date() },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+  }
 
   recordAuditLog({
     userId: String(user._id),

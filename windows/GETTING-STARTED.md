@@ -40,14 +40,18 @@ Variables) so the agent points at your MalmegaVille Sentinel account:
 - `SENTINEL_BACKEND_API_BASE_URL` — your backend's API URL (e.g.
   `https://app-production-fd2d.up.railway.app/api`)
 - `SENTINEL_SYNC_TOKEN` — only needed if your backend deployment has `SYNC_TOKEN` set
-- `SENTINEL_OWNER_SMS_NUMBER` — optional. If set, High/Critical events are texted
-  directly to this number (in `+<countrycode><number>` format) through the PC's own
-  cellular modem whenever there's no internet route at all. This only works on a
-  laptop with a built-in WWAN/eSIM modem and an active SIM; on machines without one,
-  this channel silently does nothing and events still queue normally for HTTPS sync.
+  (unset by default on the hosted deployment)
 
 Then launch the Desktop App and sign in with your MalmegaVille Sentinel account — the
 same one you use on the web dashboard.
+
+To receive SMS alerts (High/Critical events texted directly through the PC's own
+cellular modem whenever there's no internet route at all — only works on a laptop with
+a built-in WWAN/eSIM modem and an active SIM), set an alert phone number at
+registration or later from the dashboard's Settings panel. Nothing to configure on the
+PC itself: the device fetches it from your account automatically. On a PC without
+cellular hardware, this channel silently does nothing and events still queue normally
+for HTTPS sync.
 
 ## Uninstall
 

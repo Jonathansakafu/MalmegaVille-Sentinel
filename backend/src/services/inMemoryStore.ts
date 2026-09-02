@@ -46,12 +46,14 @@ export function updatePasswordHash(id: string, passwordHash: string): InMemoryUs
 
 export interface InMemoryNotificationSettings {
   alertEmailRecipient: string;
+  alertPhoneNumber: string;
 }
 
 const notificationSettingsByUser = new Map<string, InMemoryNotificationSettings>();
 
 const EMPTY_NOTIFICATION_SETTINGS: InMemoryNotificationSettings = {
-  alertEmailRecipient: ''
+  alertEmailRecipient: '',
+  alertPhoneNumber: ''
 };
 
 export function getNotificationSettingsForUser(userId: string): InMemoryNotificationSettings {

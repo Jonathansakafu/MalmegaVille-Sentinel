@@ -13,6 +13,7 @@ function AuthCard({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [view, setView] = useState<'login' | 'register'>(initialView);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +24,8 @@ function AuthCard({
     setSubmitting(true);
 
     try {
-      const data = view === 'login' ? await loginUser(email, password) : await registerUser(email, password, username);
+      const data =
+        view === 'login' ? await loginUser(email, password) : await registerUser(email, password, username, phoneNumber);
       onAuthSuccess(data.token, data.user.email, data.user.username);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `${view === 'login' ? 'Login' : 'Registration'} failed`);
@@ -98,6 +100,23 @@ function AuthCard({
                 className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-brand-green"
               />
               <span className="mt-1 block text-xs font-normal text-slate-500">3-24 characters: letters, numbers, dots, dashes, underscores.</span>
+            </label>
+          ) : null}
+          {view === 'register' ? (
+            <label className="block text-sm font-medium text-slate-300">
+              Phone number <span className="font-normal text-slate-500">(optional)</span>
+              <input
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                type="tel"
+                placeholder="+15551234567"
+                pattern="^\+[1-9]\d{6,14}$"
+                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-brand-green"
+              />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                International format with country code. Used only if a lost/stolen device needs to text you directly
+                with no internet available.
+              </span>
             </label>
           ) : null}
           <label className="block text-sm font-medium text-slate-300">

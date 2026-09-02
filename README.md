@@ -22,7 +22,7 @@ MalmegaVille Sentinel is a personal endpoint security platform: it watches your 
 Delivered in priority order, matching whichever channel is actually available:
 
 1. **Internet** (Wi-Fi, Ethernet, or cellular data) — full event sync to the backend, which emails and/or push-notifies you
-2. **Direct SMS** — if there's no internet route at all but the PC has a built-in WWAN/eSIM cellular modem, High/Critical events are texted straight to your phone over the cellular network, no internet required (`SENTINEL_OWNER_SMS_NUMBER`)
+2. **Direct SMS** — if there's no internet route at all but the PC has a built-in WWAN/eSIM cellular modem, High/Critical events are texted straight to your phone over the cellular network, no internet required. The recipient number is your account's own alert phone number (set at registration or from the dashboard's Settings panel), synced to the device automatically — nothing to configure on the PC itself
 3. **Offline queue** — nothing available at all; events stay encrypted on disk until connectivity returns
 
 Push notifications use the browser's Web Push API (enabled per-browser from the dashboard's Settings panel) rather than a dedicated mobile app.
@@ -79,16 +79,17 @@ Opens on `http://localhost:5173`, proxying `/api` to the backend on `http://loca
 Both `windows/CoreService` and `windows/DesktopApp` are standard .NET 8 projects (`dotnet build` / `dotnet run`). Key environment variables:
 
 - `SENTINEL_BACKEND_API_BASE_URL` — backend base URL (defaults to `http://localhost:4000/api`)
-- `SENTINEL_SYNC_TOKEN` — shared secret matching the backend's `SYNC_TOKEN`; required for the agents to authenticate captures/sync in production
-- `SENTINEL_OWNER_SMS_NUMBER` — optional; enables the direct-cellular-modem SMS fallback channel (see above). Only takes effect on a PC with a WWAN/eSIM modem and active SIM.
+- `SENTINEL_SYNC_TOKEN` — optional shared secret; only needed if the backend has `SYNC_TOKEN` set (off by default in production - see [Deployment](#deployment))
+
+The SMS fallback channel (see [Alerting channels](#alerting-channels) above) needs no PC-side configuration at all — the recipient number comes from the account's Settings, synced to the device automatically. It only takes effect on a PC with a WWAN/eSIM modem and active SIM.
 
 `windows/install-desktop-app.ps1` publishes and installs the desktop app with Start Menu/Desktop shortcuts.
 
 ## Deployment
 
-The whole system (backend + frontend + MongoDB) deploys as a single Railway project, auto-deploying on every push to `main`. The root `package.json` builds the frontend, then the backend, and the backend serves the built frontend directly — no separate frontend host or CORS configuration needed. See `backend/.env.example` for the full list of production environment variables (`DASHBOARD_URL`, `SYNC_TOKEN`, `CAPTURE_STORAGE_DIR`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`, etc.).
+The whole system (backend + frontend + MongoDB) deploys as a single Railway project, auto-deploying on every push to `main`. The root `package.json` builds the frontend, then the backend, and the backend serves the built frontend directly — no separate frontend host or CORS configuration needed. See `backend/.env.example` for the full list of production environment variables (`DASHBOARD_URL`, `CAPTURE_STORAGE_DIR`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`, etc.).
 
-Push notifications (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`) and the SMS fallback channel (`SENTINEL_OWNER_SMS_NUMBER`, set on the Windows agent, not the backend) are both optional — each is simply disabled, exactly like email with no recipient configured, until its keys/number are set.
+`SYNC_TOKEN` is deliberately left unset in production: it would need to be baked into the publicly downloadable Windows installer to work, which would defeat the point of it being a secret, so agent-to-backend requests are scoped by each device's own unguessable ID instead. Push notifications (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`) are optional and simply disabled, exactly like email with no recipient configured, until its keys are set. The SMS fallback channel's recipient number is a normal per-account Setting, not an environment variable at all.
 
 The Windows agent (`windows/`) is distributed separately from the Railway deploy, as a one-click installer (`MalmegaVilleSentinelSetup.exe`) published as a GitHub Release asset — see `windows/Installer/README.md` for how to rebuild and re-publish it after agent-side changes, then update the release and the Download page's link.
 

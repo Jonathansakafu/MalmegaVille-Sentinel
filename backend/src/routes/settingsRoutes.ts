@@ -14,8 +14,17 @@ const router = Router();
 router.use(authenticate);
 router.use(dashboardLimiter);
 
+// E.164 format (e.g. +15551234567) - the format the device's own cellular
+// modem needs to address an SMS directly, with no internet involved.
+const phoneNumberPattern = /^\+[1-9]\d{6,14}$/;
+const phoneNumberSchema = z.union([
+  z.literal(''),
+  z.string().trim().regex(phoneNumberPattern, 'Use international format, e.g. +15551234567.')
+]);
+
 const notificationSettingsSchema = z.object({
-  alertEmailRecipient: z.union([z.literal(''), z.string().trim().email()])
+  alertEmailRecipient: z.union([z.literal(''), z.string().trim().email()]),
+  alertPhoneNumber: phoneNumberSchema.default('')
 });
 
 router.get('/notifications', async (req, res) => {
@@ -30,7 +39,8 @@ router.get('/notifications', async (req, res) => {
 
   const settings = await NotificationSettings.findOne({ userId });
   res.json({
-    alertEmailRecipient: settings?.alertEmailRecipient ?? ''
+    alertEmailRecipient: settings?.alertEmailRecipient ?? '',
+    alertPhoneNumber: settings?.alertPhoneNumber ?? ''
   });
 });
 
@@ -40,7 +50,7 @@ router.put('/notifications', validateBody(notificationSettingsSchema), async (re
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  const { alertEmailRecipient } = req.body;
+  const { alertEmailRecipient, alertPhoneNumber } = req.body;
 
   recordAuditLog({
     userId,
@@ -50,17 +60,18 @@ router.put('/notifications', validateBody(notificationSettingsSchema), async (re
   });
 
   if (dblessTestMode) {
-    return res.json(saveNotificationSettingsForUser(userId, { alertEmailRecipient }));
+    return res.json(saveNotificationSettingsForUser(userId, { alertEmailRecipient, alertPhoneNumber }));
   }
 
   const settings = await NotificationSettings.findOneAndUpdate(
     { userId },
-    { userId, alertEmailRecipient, updatedAt: new Date() },
+    { userId, alertEmailRecipient, alertPhoneNumber, updatedAt: new Date() },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
   res.json({
-    alertEmailRecipient: settings.alertEmailRecipient ?? ''
+    alertEmailRecipient: settings.alertEmailRecipient ?? '',
+    alertPhoneNumber: settings.alertPhoneNumber ?? ''
   });
 });
 

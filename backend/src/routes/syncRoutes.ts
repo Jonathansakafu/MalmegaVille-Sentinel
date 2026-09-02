@@ -4,6 +4,7 @@ import Device from '../models/Device.js';
 import TrustedUsbDevice from '../models/TrustedUsbDevice.js';
 import { syncToken, dblessTestMode } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
+import { getEffectiveNotificationSettings } from '../services/notificationSettingsService.js';
 import { agentLimiter } from '../middleware/rateLimiters.js';
 import { findDeviceByDeviceId, listTrustedUsbDevices, recordUsbConnectEvent } from '../services/inMemoryStore.js';
 
@@ -162,13 +163,18 @@ router.get('/lost-status', async (req, res) => {
     return res.status(400).json({ message: 'deviceId is required.' });
   }
 
+  // Piggybacks the owner's SMS alert number on the same poll the agent
+  // already runs every ~15s to check lost status, rather than adding a
+  // second endpoint/poll cycle just for this.
   if (dblessTestMode) {
     const device = findDeviceByDeviceId(deviceId);
-    return res.json({ deviceId, isLost: device?.isLost ?? false });
+    const settings = device ? await getEffectiveNotificationSettings(device.userId) : {};
+    return res.json({ deviceId, isLost: device?.isLost ?? false, phoneNumber: settings.alertPhoneNumber ?? null });
   }
 
   const device = await Device.findOne({ deviceId });
-  res.json({ deviceId, isLost: device?.isLost ?? false });
+  const settings = device ? await getEffectiveNotificationSettings(String(device.userId)) : {};
+  res.json({ deviceId, isLost: device?.isLost ?? false, phoneNumber: settings.alertPhoneNumber ?? null });
 });
 
 export default router;

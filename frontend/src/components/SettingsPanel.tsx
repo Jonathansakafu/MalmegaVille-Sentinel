@@ -509,7 +509,8 @@ function SettingsPanel({
   onUsernameChange: (username: string) => void;
 }) {
   const [settings, setSettings] = useState<NotificationSettings>({
-    alertEmailRecipient: ''
+    alertEmailRecipient: '',
+    alertPhoneNumber: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -584,6 +585,22 @@ function SettingsPanel({
                 type="email"
                 className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
               />
+            </label>
+
+            <label className="block text-sm font-medium text-slate-300">
+              Alert phone number <span className="font-normal text-slate-500">(optional)</span>
+              <input
+                value={settings.alertPhoneNumber}
+                onChange={(event) => setSettings((prev) => ({ ...prev, alertPhoneNumber: event.target.value }))}
+                type="tel"
+                placeholder="+15551234567"
+                pattern="^\+[1-9]\d{6,14}$"
+                className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+              />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                International format with country code. Used only if a lost/stolen device needs to text you directly
+                with no internet available.
+              </span>
             </label>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

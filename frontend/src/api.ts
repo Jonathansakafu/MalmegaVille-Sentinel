@@ -62,11 +62,11 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   });
 }
 
-export async function registerUser(email: string, password: string, username: string): Promise<AuthResponse> {
+export async function registerUser(email: string, password: string, username: string, phoneNumber?: string): Promise<AuthResponse> {
   return request('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, username })
+    body: JSON.stringify({ email, password, username, phoneNumber })
   });
 }
 
@@ -118,6 +118,7 @@ export async function fetchCaptureBlobUrl(token: string, captureId: string): Pro
 
 export type NotificationSettings = {
   alertEmailRecipient: string;
+  alertPhoneNumber: string;
 };
 
 export type NotificationChannelResult = { configured: boolean; sent: boolean; error?: string };

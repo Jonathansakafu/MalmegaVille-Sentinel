@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace MalmegaVille.Sentinel.CoreService.Services;
 
-public sealed record LostStatusResponse(string DeviceId, bool IsLost);
+public sealed record LostStatusResponse(string DeviceId, bool IsLost, string? PhoneNumber);
 
 public sealed class LostStatusClient
 {
@@ -13,6 +13,11 @@ public sealed class LostStatusClient
     private readonly string? _syncToken;
 
     public bool LastKnownLost { get; private set; }
+
+    // The owner's own SMS alert number (E.164), from account Settings - not a
+    // local env var, so any device just works with whatever the owner has
+    // configured on the dashboard, with nothing to set up on the PC itself.
+    public string? LastKnownOwnerPhoneNumber { get; private set; }
 
     public LostStatusClient(ILogger<LostStatusClient> logger)
     {
@@ -46,6 +51,7 @@ public sealed class LostStatusClient
             if (body != null)
             {
                 LastKnownLost = body.IsLost;
+                LastKnownOwnerPhoneNumber = string.IsNullOrWhiteSpace(body.PhoneNumber) ? null : body.PhoneNumber;
             }
         }
         catch (Exception ex)
