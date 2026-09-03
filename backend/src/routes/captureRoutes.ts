@@ -46,7 +46,7 @@ const uploadUsbFile = multer({ storage, limits: { fileSize: captureMaxFileBytes 
 // after this list was first written and are validated the same way as the
 // original two - listed together so `photo`'s inline check below can't
 // silently drift out of sync with this again.
-const VALID_TRIGGER_EVENTS = ['usb_insert', 'login_unlock', 'sign_in', 'phone_check'] as const;
+const VALID_TRIGGER_EVENTS = ['usb_insert', 'login_unlock', 'sign_in', 'phone_check', 'usb_connect'] as const;
 
 const locationSchema = z.object({
   deviceId: z.string().trim().min(1),

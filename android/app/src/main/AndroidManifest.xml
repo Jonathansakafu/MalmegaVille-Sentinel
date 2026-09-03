@@ -45,6 +45,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Best-effort: fires an immediate check-in when the phone is
+             plugged in via USB, a common step in "flashing" a stolen phone
+             to erase evidence. Same reliability caveat as UserPresentReceiver
+             above - the 15-minute periodic job is still the guaranteed path. -->
+        <receiver android:name=".UsbConnectedReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Receives the "send this SMS" push from the backend and relays it
              through this phone's own SIM - see mobilePushService.ts. -->
         <service
