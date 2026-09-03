@@ -41,9 +41,16 @@ const storage = multer.diskStorage({
 const uploadPhoto = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
 const uploadUsbFile = multer({ storage, limits: { fileSize: captureMaxFileBytes } });
 
+// 'sign_in' (a fresh Windows sign-in, not just an unlock) and 'phone_check'
+// (an Android device's own periodic/unlock lost-status check) were added
+// after this list was first written and are validated the same way as the
+// original two - listed together so `photo`'s inline check below can't
+// silently drift out of sync with this again.
+const VALID_TRIGGER_EVENTS = ['usb_insert', 'login_unlock', 'sign_in', 'phone_check'] as const;
+
 const locationSchema = z.object({
   deviceId: z.string().trim().min(1),
-  triggerEvent: z.enum(['usb_insert', 'login_unlock']).optional(),
+  triggerEvent: z.enum(VALID_TRIGGER_EVENTS).optional(),
   capturedAtUtc: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -132,7 +139,7 @@ router.post('/location', agentLimiter, validateBody(locationSchema), async (req,
     userId,
     deviceId,
     captureType: 'location' as const,
-    triggerEvent: triggerEvent === 'usb_insert' || triggerEvent === 'login_unlock' ? triggerEvent : undefined,
+    triggerEvent: (VALID_TRIGGER_EVENTS as readonly string[]).includes(triggerEvent) ? triggerEvent : undefined,
     skipped: metadata.source === 'unavailable',
     skipReason: metadata.source === 'unavailable' ? 'location_unavailable' : undefined,
     capturedAtUtc: capturedAtUtc ? new Date(capturedAtUtc) : new Date(),
@@ -182,7 +189,7 @@ router.post('/photo', agentLimiter, uploadPhoto.single('photo'), async (req, res
     userId,
     deviceId,
     captureType: 'webcam_photo' as const,
-    triggerEvent: triggerEvent === 'usb_insert' || triggerEvent === 'login_unlock' ? triggerEvent : undefined,
+    triggerEvent: (VALID_TRIGGER_EVENTS as readonly string[]).includes(triggerEvent) ? triggerEvent : undefined,
     originalFileName: req.file.originalname,
     sizeBytes: req.file.size,
     mimeType: req.file.mimetype,

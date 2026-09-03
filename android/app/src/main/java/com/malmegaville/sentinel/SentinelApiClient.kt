@@ -1,6 +1,7 @@
 package com.malmegaville.sentinel
 
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -119,5 +120,58 @@ class SentinelApiClient(private val httpClient: OkHttpClient = OkHttpClient()) {
                 throw IOException("Remove failed (${response.code}).")
             }
         }
+    }
+
+    // --- Lost-device self-monitoring: this phone reporting on itself, the
+    // same way the Windows agent does. These three calls are unauthenticated
+    // (or sync-token gated, like the Windows agent's own capture uploads),
+    // not JWT-authed - they only work once /devices has registered this
+    // deviceId, which does require the JWT (see registerAsDevice below).
+
+    fun registerAsDevice(token: String, deviceId: String, name: String, operatingSystem: String): JSONObject {
+        val body = JSONObject()
+            .put("deviceId", deviceId)
+            .put("name", name)
+            .put("operatingSystem", operatingSystem)
+            .toString()
+            .toRequestBody(jsonMediaType)
+        return executeJson(authedRequest("/devices", token).post(body).build())
+    }
+
+    fun checkLostStatus(deviceId: String): JSONObject {
+        val url = "${SentinelPrefs.BACKEND_BASE_URL}/sync/lost-status?deviceId=${java.net.URLEncoder.encode(deviceId, "UTF-8")}"
+        return executeJson(Request.Builder().url(url).get().build())
+    }
+
+    fun uploadSelfCapturePhoto(deviceId: String, triggerEvent: String, capturedAtUtc: String, jpegBytes: ByteArray): JSONObject {
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("deviceId", deviceId)
+            .addFormDataPart("triggerEvent", triggerEvent)
+            .addFormDataPart("capturedAtUtc", capturedAtUtc)
+            .addFormDataPart("photo", "capture.jpg", jpegBytes.toRequestBody("image/jpeg".toMediaType()))
+            .build()
+        val request = Request.Builder().url("${SentinelPrefs.BACKEND_BASE_URL}/captures/photo").post(body).build()
+        return executeJson(request)
+    }
+
+    fun uploadSelfCaptureLocation(
+        deviceId: String,
+        triggerEvent: String,
+        capturedAtUtc: String,
+        latitude: Double?,
+        longitude: Double?,
+        accuracyMeters: Float?
+    ): JSONObject {
+        val json = JSONObject()
+            .put("deviceId", deviceId)
+            .put("triggerEvent", triggerEvent)
+            .put("capturedAtUtc", capturedAtUtc)
+        if (latitude != null) json.put("latitude", latitude)
+        if (longitude != null) json.put("longitude", longitude)
+        if (accuracyMeters != null) json.put("accuracyMeters", accuracyMeters)
+        val body = json.toString().toRequestBody(jsonMediaType)
+        val request = Request.Builder().url("${SentinelPrefs.BACKEND_BASE_URL}/captures/location").post(body).build()
+        return executeJson(request)
     }
 }

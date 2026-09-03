@@ -3,6 +3,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -21,6 +26,24 @@
         </activity>
 
         <activity android:name=".DashboardActivity" android:exported="false" />
+
+        <!-- Reschedules the periodic lost-device check-in after a reboot,
+             since WorkManager's own scheduled jobs don't survive one on their
+             own without this. -->
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Best-effort, faster supplementary check: fires immediately on
+             unlock if the app process happens to still be alive. The
+             WorkManager job above is the reliable path when it isn't. -->
+        <receiver android:name=".UserPresentReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
 
         <!-- Receives the "send this SMS" push from the backend and relays it
              through this phone's own SIM - see mobilePushService.ts. -->

@@ -41,4 +41,9 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // Periodic lost-device check-in (15-minute minimum interval - an Android
+    // platform floor, not a configurable choice) and reliable boot-survival.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // Fused location (GPS + network) for the lost-device location capture.
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

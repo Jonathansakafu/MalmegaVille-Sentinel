@@ -1,12 +1,15 @@
 package com.malmegaville.sentinel
 
+import android.content.Context
 import android.os.Build
+import android.telephony.SmsManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.UUID
 
 // Shared constants and the device-registration call, used by both
 // MainActivity (initial pairing) and SentinelFirebaseMessagingService
@@ -14,7 +17,35 @@ import java.io.IOException
 object SentinelPrefs {
     const val NAME = "sentinel_prefs"
     const val KEY_AUTH_TOKEN = "auth_token"
+    const val KEY_PHONE_DEVICE_ID = "phone_device_id"
     const val BACKEND_BASE_URL = "https://app-production-fd2d.up.railway.app/api"
+
+    // A stable identifier for the phone itself, separate from its FCM push
+    // token (which is for the relay-pairing feature and rotates over time) -
+    // this is what the phone registers as a trackable Device and reports its
+    // own lost-status checks under, mirroring DeviceIdentity.cs on Windows.
+    fun getOrCreatePhoneDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        val existing = prefs.getString(KEY_PHONE_DEVICE_ID, null)
+        if (existing != null) return existing
+        val created = UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_PHONE_DEVICE_ID, created).apply()
+        return created
+    }
+
+    // Shared by the SMS-relay feature (texting on another lost device's
+    // behalf) and the lost-device-self-monitoring SMS fallback (this phone
+    // reporting on itself when it has no internet).
+    fun sendSms(to: String, body: String): Boolean {
+        return try {
+            val smsManager = SmsManager.getDefault()
+            val parts = smsManager.divideMessage(body)
+            smsManager.sendMultipartTextMessage(to, null, parts, null, null)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     fun registerDeviceWithBackend(httpClient: OkHttpClient, authToken: String, fcmToken: String) {
         val json = JSONObject()

@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import android.telephony.SmsManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -44,17 +43,14 @@ class SentinelFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        try {
-            val smsManager = SmsManager.getDefault()
-            val parts = smsManager.divideMessage(body)
-            smsManager.sendMultipartTextMessage(to, null, parts, null, null)
-            // This confirms the OS accepted and dispatched the message, not that
-            // it was actually delivered by the carrier - if it never arrives
-            // despite this succeeding, the most likely cause is an incorrect
-            // destination number.
+        // This confirms the OS accepted and dispatched the message, not that
+        // it was actually delivered by the carrier - if it never arrives
+        // despite this succeeding, the most likely cause is an incorrect
+        // destination number.
+        if (SentinelPrefs.sendSms(to, body)) {
             notifyResult(success = true, detail = "Relayed an alert to $to.")
-        } catch (e: Exception) {
-            notifyResult(success = false, detail = "Could not text $to: ${e.message}")
+        } else {
+            notifyResult(success = false, detail = "Could not text $to.")
         }
     }
 

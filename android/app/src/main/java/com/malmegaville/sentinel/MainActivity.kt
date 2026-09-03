@@ -42,6 +42,7 @@ import java.io.IOException
 class MainActivity : AppCompatActivity() {
 
     private val httpClient = OkHttpClient()
+    private val api = SentinelApiClient(httpClient)
     private lateinit var prefs: SharedPreferences
     private lateinit var statusText: TextView
     private lateinit var emailInput: EditText
@@ -170,7 +171,12 @@ class MainActivity : AppCompatActivity() {
     private enum class StatusTone { MUTED, SUCCESS, ERROR }
 
     private fun requestRuntimePermissions() {
-        val permissions = mutableListOf(Manifest.permission.SEND_SMS)
+        val permissions = mutableListOf(
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -192,6 +198,7 @@ class MainActivity : AppCompatActivity() {
         // that remembers you; re-pairing (in case the push token rotated)
         // happens quietly in the background rather than blocking navigation.
         registerDeviceToken(token, silent = true)
+        activateLostDeviceMonitoring(token)
         goToDashboard()
     }
 
@@ -210,9 +217,28 @@ class MainActivity : AppCompatActivity() {
                 val token = withContext(Dispatchers.IO) { login(email, password) }
                 prefs.edit().putString(SentinelPrefs.KEY_AUTH_TOKEN, token).apply()
                 registerDeviceToken(token, silent = true)
+                activateLostDeviceMonitoring(token)
                 goToDashboard()
             } catch (e: Exception) {
                 setStatus("Sign-in failed: ${e.message}", StatusTone.ERROR)
+            }
+        }
+    }
+
+    // Registers this phone as a trackable Device (so it can be marked
+    // lost/found from the dashboard like a PC) and schedules the periodic
+    // check-in that watches for that flag. Best-effort and silent - failures
+    // here shouldn't block sign-in, and there's nothing useful to show the
+    // user about a background registration succeeding or not.
+    private fun activateLostDeviceMonitoring(authToken: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val deviceId = SentinelPrefs.getOrCreatePhoneDeviceId(applicationContext)
+                val osLabel = "Android ${Build.VERSION.RELEASE}"
+                api.registerAsDevice(authToken, deviceId, Build.MODEL ?: "Android device", osLabel)
+                LostDeviceWorker.schedulePeriodic(applicationContext)
+            } catch (e: Exception) {
+                // Best effort - will retry next time this is called (app open).
             }
         }
     }
