@@ -21,6 +21,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 // Android equivalent of CapturesSection.tsx. Deliberately simpler in one
 // spot versus the web version: locations show a simple pinned map (our own
@@ -30,6 +34,18 @@ import org.json.JSONObject
 // downloadable to the phone (there's little
 // reason to copy a stolen device's files onto the relay phone too).
 object CapturesTab {
+
+    // The backend stores and sends capturedAtUtc as a UTC ISO-8601 instant.
+    // The web dashboard already converts it to the viewer's local time
+    // (new Date(...).toLocaleString()) - this app was printing the raw UTC
+    // string as-is, which reads as "wrong" to anyone outside UTC (e.g. an
+    // event at 09:47 local in UTC+3 showed as "06:47").
+    private val localFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
+
+    private fun formatCapturedAt(isoUtc: String): String {
+        if (isoUtc.isBlank()) return ""
+        return runCatching { localFormatter.format(Instant.parse(isoUtc)) }.getOrDefault(isoUtc)
+    }
 
     fun build(activity: DashboardActivity, container: LinearLayout) {
         CoroutineScope(Dispatchers.Main).launch {
@@ -153,7 +169,7 @@ object CapturesTab {
         }
         root.addView(imageView)
         root.addView(Ui.spacer(activity, 12))
-        root.addView(Ui.mutedText(activity, photo.optString("capturedAtUtc", "")))
+        root.addView(Ui.mutedText(activity, formatCapturedAt(photo.optString("capturedAtUtc", ""))))
         root.addView(Ui.spacer(activity, 12))
 
         val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -200,7 +216,7 @@ object CapturesTab {
         val lat = metadata.optDouble("latitude", Double.NaN)
         val lon = metadata.optDouble("longitude", Double.NaN)
 
-        row.addView(Ui.mutedText(activity, location.optString("capturedAtUtc", "")))
+        row.addView(Ui.mutedText(activity, formatCapturedAt(location.optString("capturedAtUtc", ""))))
         row.addView(Ui.spacer(activity, 4))
 
         if (lat.isNaN() || lon.isNaN()) {
