@@ -9,6 +9,8 @@
     html, body, #map { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
     #empty { display: flex; height: 100%; align-items: center; justify-content: center;
       font-family: -apple-system, sans-serif; color: #94a3b8; text-align: center; padding: 24px; }
+    #routeInfo { position: absolute; z-index: 1000; left: 8px; bottom: 8px; background: rgba(11,15,11,0.85);
+      color: #e2e8f0; font-family: -apple-system, sans-serif; font-size: 13px; padding: 6px 10px; border-radius: 8px; }
   </style>
 </head>
 <body>
@@ -27,10 +29,47 @@
       showError('Map script error: ' + (event.message || 'unknown'));
     });
 
+    function addRouteInfo(map, text) {
+      var el = document.createElement('div');
+      el.id = 'routeInfo';
+      el.textContent = text;
+      document.body.appendChild(el);
+    }
+
+    // Simplified single-route counterpart to the web dashboard's RouteMap.tsx
+    // (that one offers alternative routes to pick from - this popup just
+    // shows the best one, which is enough for "which way do I go").
+    function drawRoute(map, originLat, originLon, targetLat, targetLon) {
+      var originIcon = L.icon({
+        iconUrl: '/vendor/leaflet/images/marker-icon.png',
+        iconRetinaUrl: '/vendor/leaflet/images/marker-icon-2x.png',
+        shadowUrl: '/vendor/leaflet/images/marker-shadow.png',
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+        className: 'hue-rotate-[220deg]'
+      });
+      L.marker([originLat, originLon], { icon: originIcon }).addTo(map).bindPopup('You are here');
+
+      var url = 'https://router.project-osrm.org/route/v1/driving/' + originLon + ',' + originLat + ';' + targetLon + ',' + targetLat + '?overview=full&geometries=geojson';
+      fetch(url)
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (body) {
+          var route = body && body.routes && body.routes[0];
+          if (!route) return;
+          var points = route.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+          L.polyline(points, { color: '#7ed957', weight: 5, opacity: 0.9 }).addTo(map);
+          map.fitBounds(L.latLngBounds([[targetLat, targetLon], [originLat, originLon]]), { padding: [32, 32] });
+          var km = (route.distance / 1000).toFixed(1);
+          var min = Math.round(route.duration / 60);
+          addRouteInfo(map, km + ' km · ' + min + ' min drive');
+        })
+        .catch(function () { /* route is a bonus - the pin alone is still useful without it */ });
+    }
+
     try {
       var params = new URLSearchParams(window.location.search);
       var lat = parseFloat(params.get('lat'));
       var lon = parseFloat(params.get('lon'));
+      var wantsRoute = params.get('route') === '1';
 
       if (isNaN(lat) || isNaN(lon)) {
         showError('No location available.');
@@ -45,6 +84,16 @@
           showError('Map tiles failed to load. Check the phone\'s internet connection.');
         });
         L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
+
+        if (wantsRoute && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              drawRoute(map, position.coords.latitude, position.coords.longitude, lat, lon);
+            },
+            function () { /* no origin fix available - the destination pin alone still shows */ },
+            { enableHighAccuracy: true, timeout: 15000 }
+          );
+        }
       }
     } catch (error) {
       showError('Map failed to load: ' + (error && error.message ? error.message : error));

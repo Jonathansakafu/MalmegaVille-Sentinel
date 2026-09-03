@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -89,7 +90,7 @@ object CapturesTab {
             val grid = GridLayout(activity).apply { columnCount = 3 }
             photos.forEachIndexed { index, photo ->
                 grid.addView(
-                    photoThumbnail(activity, photo) { showPhotoDialog(activity, photo, container) },
+                    photoThumbnail(activity, photo) { showPhotoDialog(activity, photo, container, locations) },
                     GridLayout.LayoutParams(GridLayout.spec(index / 3), GridLayout.spec(index % 3, 1f)).apply {
                         width = 0
                         height = Ui.dp(activity, 100)
@@ -142,16 +143,44 @@ object CapturesTab {
                 try {
                     val bytes = withContext(Dispatchers.IO) { activity.api.fetchCaptureBytes(activity.authToken, id) }
                     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    if (bitmap != null) imageView.setImageBitmap(bitmap)
+                    if (bitmap != null) {
+                        imageView.setImageBitmap(bitmap)
+                    } else {
+                        Log.e("SentinelCaptures", "Thumbnail decode returned null for capture $id (${bytes.size} bytes)")
+                    }
                 } catch (e: Exception) {
-                    // Best effort - thumbnail just stays blank.
+                    Log.e("SentinelCaptures", "Thumbnail load failed for capture $id", e)
                 }
             }
         }
         return imageView
     }
 
-    private fun showPhotoDialog(activity: DashboardActivity, photo: JSONObject, listContainer: LinearLayout) {
+    // The self-monitoring worker captures a photo and its location in the
+    // same lost-check cycle, stamping both with the exact same
+    // capturedAtUtc - that's what ties a photo to "where it was taken" here,
+    // mirroring the sessionId-based grouping the web dashboard uses for the
+    // desktop agent's USB captures (which the phone's own captures don't
+    // carry a sessionId for). Falls back to the closest location within 5
+    // minutes if the timestamps aren't an exact match.
+    private fun findMatchingLocation(photo: JSONObject, locations: List<JSONObject>): JSONObject? {
+        val photoTime = runCatching { Instant.parse(photo.optString("capturedAtUtc", "")) }.getOrNull() ?: return null
+        var best: JSONObject? = null
+        var bestDiffSeconds = 5 * 60L
+        for (location in locations) {
+            val metadata = location.optJSONObject("metadata") ?: continue
+            if (metadata.optDouble("latitude", Double.NaN).isNaN() || metadata.optDouble("longitude", Double.NaN).isNaN()) continue
+            val locationTime = runCatching { Instant.parse(location.optString("capturedAtUtc", "")) }.getOrNull() ?: continue
+            val diff = Math.abs(java.time.Duration.between(photoTime, locationTime).seconds)
+            if (diff <= bestDiffSeconds) {
+                bestDiffSeconds = diff
+                best = location
+            }
+        }
+        return best
+    }
+
+    private fun showPhotoDialog(activity: DashboardActivity, photo: JSONObject, listContainer: LinearLayout, locations: List<JSONObject> = emptyList()) {
         val id = captureId(photo) ?: return
         val dialog = Dialog(activity)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -171,6 +200,26 @@ object CapturesTab {
         root.addView(Ui.spacer(activity, 12))
         root.addView(Ui.mutedText(activity, formatCapturedAt(photo.optString("capturedAtUtc", ""))))
         root.addView(Ui.spacer(activity, 12))
+
+        // Matches the web dashboard's grouped photo+location+route view - if
+        // this photo has a location from the same capture cycle, show where
+        // it was taken and the drive there, not just the picture alone.
+        val matchedLocation = findMatchingLocation(photo, locations)
+        if (matchedLocation != null) {
+            val metadata = matchedLocation.optJSONObject("metadata") ?: JSONObject()
+            val lat = metadata.optDouble("latitude", Double.NaN)
+            val lon = metadata.optDouble("longitude", Double.NaN)
+            if (!lat.isNaN() && !lon.isNaN()) {
+                root.addView(Ui.mutedText(activity, "Location & route"))
+                root.addView(Ui.spacer(activity, 8))
+                val mapWebView = createMapWebView(
+                    activity,
+                    "${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon&route=1"
+                )
+                root.addView(mapWebView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(activity, 260)))
+                root.addView(Ui.spacer(activity, 12))
+            }
+        }
 
         val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         buttonRow.addView(
@@ -200,9 +249,15 @@ object CapturesTab {
             try {
                 val bytes = withContext(Dispatchers.IO) { activity.api.fetchCaptureBytes(activity.authToken, id) }
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                if (bitmap != null) imageView.setImageBitmap(bitmap)
+                if (bitmap != null) {
+                    imageView.setImageBitmap(bitmap)
+                } else {
+                    Log.e("SentinelCaptures", "Full-image decode returned null for capture $id (${bytes.size} bytes)")
+                    Toast.makeText(activity, "Photo data couldn't be decoded.", Toast.LENGTH_SHORT).show()
+                }
             } catch (e: Exception) {
-                // Leave the placeholder if it fails to load.
+                Log.e("SentinelCaptures", "Full-image load failed for capture $id", e)
+                Toast.makeText(activity, "Failed to load photo: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -235,14 +290,19 @@ object CapturesTab {
         return row
     }
 
-    // Shows the location on our own map-viewer.html (Leaflet + OpenStreetMap,
-    // same as the web dashboard) in a WebView inside a Dialog - stays inside
-    // this app the whole time, no external Maps app involved.
+    // Shared by the standalone "View on Map" dialog and the route map
+    // embedded in the photo dialog - both point at our own map-viewer.html
+    // (Leaflet + OpenStreetMap, same as the web dashboard) rendered in a
+    // WebView, never handing off to a separate Maps app.
     @Suppress("SetJavaScriptEnabled")
-    private fun showLocationMapDialog(activity: DashboardActivity, lat: Double, lon: Double) {
-        val webView = WebView(activity).apply {
+    private fun createMapWebView(activity: DashboardActivity, url: String): WebView {
+        return WebView(activity).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            // Route mode asks the page for the viewer's own live position via
+            // navigator.geolocation - without both of these, WebView denies
+            // that silently regardless of the app's own location permission.
+            settings.setGeolocationEnabled(true)
             // Bypasses any stale cached copy of map-viewer.html/leaflet from
             // before it was fixed to be self-hosted (was previously blocked
             // by the site's own CSP when loaded from a CDN) - always fetch
@@ -263,9 +323,23 @@ object CapturesTab {
                     Log.d("SentinelMap", "console: ${message.message()} (${message.sourceId()}:${message.lineNumber()})")
                     return true
                 }
+
+                override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+                    // The app itself already holds ACCESS_FINE_LOCATION (granted
+                    // during sign-in) - this just relays that same consent to
+                    // the page's own geolocation call rather than asking again.
+                    callback?.invoke(origin, true, false)
+                }
             }
-            loadUrl("${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon")
+            loadUrl(url)
         }
+    }
+
+    // Shows the location on our own map-viewer.html (Leaflet + OpenStreetMap,
+    // same as the web dashboard) in a WebView inside a Dialog - stays inside
+    // this app the whole time, no external Maps app involved.
+    private fun showLocationMapDialog(activity: DashboardActivity, lat: Double, lon: Double) {
+        val webView = createMapWebView(activity, "${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon")
 
         val dialog = Dialog(activity)
         val root = LinearLayout(activity).apply {
