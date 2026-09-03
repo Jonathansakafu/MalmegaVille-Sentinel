@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import androidx.core.content.ContextCompat
 
 // ACTION_USER_PRESENT (unlock) and ACTION_POWER_CONNECTED (USB) are implicit
 // broadcasts, and since Android 8.0 the OS simply does not deliver most
@@ -22,10 +23,20 @@ class SentinelApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Android 13+ throws a SecurityException from the plain 2-arg
+        // registerReceiver() for a targetSdk 34 app unless an export flag is
+        // given - ContextCompat.registerReceiver handles that correctly
+        // (and is a no-op difference on older OS versions). NOT_EXPORTED
+        // since only the OS itself, never another app, should be able to
+        // trigger these.
         val userPresentReceiver = UserPresentReceiver()
-        registerReceiver(userPresentReceiver, IntentFilter(Intent.ACTION_USER_PRESENT))
+        ContextCompat.registerReceiver(
+            this, userPresentReceiver, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         val usbConnectedReceiver = UsbConnectedReceiver()
-        registerReceiver(usbConnectedReceiver, IntentFilter(Intent.ACTION_POWER_CONNECTED))
+        ContextCompat.registerReceiver(
+            this, usbConnectedReceiver, IntentFilter(Intent.ACTION_POWER_CONNECTED), ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 }
