@@ -47,18 +47,27 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val deviceId = SentinelPrefs.getOrCreatePhoneDeviceId(applicationContext)
         val trigger = inputData.getString(KEY_TRIGGER) ?: "phone_check"
 
-        val status = try {
-            withContext(Dispatchers.IO) { api.checkLostStatus(deviceId) }
-        } catch (e: Exception) {
-            // Not registered yet, or backend unreachable - try again next cycle.
+        // Checking "am I lost?" is itself a network call - with no internet
+        // at all, it fails before ever learning the answer, which would
+        // otherwise make the SMS fallback below unreachable exactly when
+        // it's needed most. So the last successful answer is cached and
+        // reused here, the same way the Windows agent's LostStatusClient
+        // keeps serving its last known value when a refresh fails.
+        val freshStatus = runCatching { withContext(Dispatchers.IO) { api.checkLostStatus(deviceId) } }.getOrNull()
+        if (freshStatus != null) {
+            prefs.edit()
+                .putBoolean(KEY_CACHED_IS_LOST, freshStatus.optBoolean("isLost", false))
+                .putString(KEY_CACHED_OWNER_PHONE, freshStatus.optString("phoneNumber", ""))
+                .apply()
+        }
+
+        val isLost = freshStatus?.optBoolean("isLost", false) ?: prefs.getBoolean(KEY_CACHED_IS_LOST, false)
+        if (!isLost) {
             return Result.success()
         }
 
-        if (!status.optBoolean("isLost", false)) {
-            return Result.success()
-        }
-
-        val ownerPhoneNumber = status.optString("phoneNumber", "").takeIf { it.isNotBlank() }
+        val ownerPhoneNumber = (freshStatus?.optString("phoneNumber", "") ?: prefs.getString(KEY_CACHED_OWNER_PHONE, ""))
+            ?.takeIf { it.isNotBlank() }
         val capturedAt = Instant.now().toString()
         val location = getLastLocation(applicationContext)
 
@@ -120,6 +129,8 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
     companion object {
         const val KEY_TRIGGER = "trigger"
+        private const val KEY_CACHED_IS_LOST = "cached_is_lost"
+        private const val KEY_CACHED_OWNER_PHONE = "cached_owner_phone"
         private const val UNIQUE_PERIODIC_NAME = "lost_device_periodic_check"
 
         // The 15-minute interval is WorkManager's enforced minimum for
