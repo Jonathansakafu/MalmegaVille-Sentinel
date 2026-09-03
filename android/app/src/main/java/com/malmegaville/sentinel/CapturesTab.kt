@@ -2,9 +2,14 @@ package com.malmegaville.sentinel
 
 import android.app.Dialog
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -221,6 +226,28 @@ object CapturesTab {
     private fun showLocationMapDialog(activity: DashboardActivity, lat: Double, lon: Double) {
         val webView = WebView(activity).apply {
             settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            // Bypasses any stale cached copy of map-viewer.html/leaflet from
+            // before it was fixed to be self-hosted (was previously blocked
+            // by the site's own CSP when loaded from a CDN) - always fetch
+            // the current version fresh.
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            webViewClient = object : WebViewClient() {
+                override fun onReceivedError(
+                    view: WebView?,
+                    errorCode: Int,
+                    description: String?,
+                    failingUrl: String?
+                ) {
+                    Log.e("SentinelMap", "WebView error $errorCode loading $failingUrl: $description")
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                    Log.d("SentinelMap", "console: ${message.message()} (${message.sourceId()}:${message.lineNumber()})")
+                    return true
+                }
+            }
             loadUrl("${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon")
         }
 

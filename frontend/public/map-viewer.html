@@ -8,25 +8,46 @@
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
     #empty { display: flex; height: 100%; align-items: center; justify-content: center;
-      font-family: -apple-system, sans-serif; color: #94a3b8; }
+      font-family: -apple-system, sans-serif; color: #94a3b8; text-align: center; padding: 24px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script>
-    var params = new URLSearchParams(window.location.search);
-    var lat = parseFloat(params.get('lat'));
-    var lon = parseFloat(params.get('lon'));
+    // Surfaces any failure directly on the page instead of a silent blank/
+    // black screen - this page is viewed inside an Android WebView with no
+    // console/devtools access, so a visible message is the only diagnostic
+    // available without a USB-debugging setup.
+    function showError(message) {
+      document.getElementById('map').outerHTML = '<div id="empty">' + message + '</div>';
+    }
 
-    if (!isNaN(lat) && !isNaN(lon)) {
-      var map = L.map('map').setView([lat, lon], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-      L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
-    } else {
-      document.getElementById('map').outerHTML = '<div id="empty">No location available.</div>';
+    window.addEventListener('error', function (event) {
+      showError('Map script error: ' + (event.message || 'unknown'));
+    });
+
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var lat = parseFloat(params.get('lat'));
+      var lon = parseFloat(params.get('lon'));
+
+      if (isNaN(lat) || isNaN(lon)) {
+        showError('No location available.');
+      } else if (typeof L === 'undefined') {
+        showError('Map library failed to load.');
+      } else {
+        var map = L.map('map').setView([lat, lon], 15);
+        var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        tiles.on('tileerror', function () {
+          showError('Map tiles failed to load. Check the phone\'s internet connection.');
+        });
+        L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
+      }
+    } catch (error) {
+      showError('Map failed to load: ' + (error && error.message ? error.message : error));
     }
   </script>
 </body>
