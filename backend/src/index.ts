@@ -23,6 +23,16 @@ import { mongodbUri, dblessTestMode } from './config.js';
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
+// Railway puts one reverse proxy in front of this service, which sets
+// X-Forwarded-For - without telling Express to trust it, every request's
+// req.ip resolves to the proxy's own address instead of the real client's.
+// Found live: express-rate-limit logged a ValidationError on every request
+// because of this, and more importantly its per-IP rate limits were
+// silently keying on that single shared proxy IP for all traffic, making
+// auth/dashboard/agent limits a shared budget across every user instead of
+// a per-client one. `1` trusts exactly the one hop Railway adds.
+app.set('trust proxy', 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: {
