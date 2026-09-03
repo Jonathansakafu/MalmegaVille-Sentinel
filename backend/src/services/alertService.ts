@@ -3,10 +3,17 @@ import { sendPushNotification, PushDeliveryResult } from './pushService.js';
 import { sendAlertSms, isSmsConfigured } from './smsService.js';
 import { sendSmsRelayPush, MobileRelayResult } from './mobilePushService.js';
 import { getEffectiveNotificationSettings } from './notificationSettingsService.js';
-import { notificationLogoUrl, dashboardUrl } from '../config.js';
+import { notificationLogoUrl, dashboardUrl, dblessTestMode } from '../config.js';
+import Incident from '../models/Incident.js';
+import { addIncident } from './inMemoryStore.js';
 
 export interface EventAlertPayload {
   userId: string;
+  // Device-scoped events (a USB threat, a lost-device capture) pass this so
+  // the event can also become a dashboard Incident, not just an alert -
+  // account-level events (login, password change) have no device and
+  // deliberately leave this unset, since Incident.deviceId is required.
+  deviceId?: string;
   deviceName: string;
   eventType: string;
   timestampUtc: string | Date;
@@ -15,6 +22,20 @@ export interface EventAlertPayload {
   threatScore?: number;
   recommendedAction?: string;
   metadata?: Record<string, unknown>;
+}
+
+// Only used as a fallback - most callers already carry a real threatScore
+// from whatever detected the event (e.g. the Windows agent's own LOLBin
+// scoring). This just keeps Incident.threatScore (a required field) sane
+// for the handful of callers that don't.
+function defaultThreatScoreForSeverity(severity: string): number {
+  switch (severity.toLowerCase()) {
+    case 'critical': return 90;
+    case 'high': return 75;
+    case 'medium':
+    case 'warning': return 50;
+    default: return 30;
+  }
 }
 
 export interface NotificationDeliveryResult {
@@ -32,6 +53,25 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
   const eventTime = typeof payload.timestampUtc === 'string' ? new Date(payload.timestampUtc) : payload.timestampUtc;
   const safeSeverity = payload.severity ? payload.severity.charAt(0).toUpperCase() + payload.severity.slice(1).toLowerCase() : 'Informational';
   const subject = `MalmegaVille Sentinel Event: ${payload.eventType} [${safeSeverity}]`;
+
+  // Every device-scoped, alert-worthy event also becomes a dashboard
+  // Incident - previously nothing did this, so the "Incidents"/"High Risk"
+  // summary cards always read zero regardless of real activity. Fire-and-
+  // forget: a failure here shouldn't block the actual alert channels below.
+  if (payload.deviceId && safeSeverity.toLowerCase() !== 'informational') {
+    const incidentFields = {
+      userId: payload.userId,
+      deviceId: payload.deviceId,
+      incidentType: payload.eventType,
+      threatScore: payload.threatScore ?? defaultThreatScoreForSeverity(safeSeverity),
+      severity: safeSeverity,
+      summary: payload.description,
+      details: payload.metadata ?? {}
+    };
+    Promise.resolve(dblessTestMode ? addIncident(incidentFields) : new Incident(incidentFields).save()).catch((error) => {
+      console.error('Incident logging failed', error);
+    });
+  }
 
   // Push and SMS are both independent of email configuration - an account
   // missing one channel's setup should still get whichever channels it does

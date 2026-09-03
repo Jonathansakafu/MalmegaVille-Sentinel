@@ -153,6 +153,7 @@ router.post('/location', agentLimiter, validateBody(locationSchema), async (req,
   if (metadata.source !== 'unavailable') {
     notifySecurityEvent({
       userId,
+      deviceId,
       deviceName: await deviceDisplayName(deviceId),
       eventType: 'Lost Device Location Captured',
       timestampUtc: new Date(),
@@ -205,6 +206,7 @@ router.post('/photo', agentLimiter, uploadPhoto.single('photo'), async (req, res
 
   notifySecurityEvent({
     userId,
+    deviceId,
     deviceName: await deviceDisplayName(deviceId),
     eventType: 'Lost Device Photo Captured',
     timestampUtc: new Date(),

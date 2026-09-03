@@ -124,6 +124,7 @@ router.post('/events', async (req, res) => {
       }
       notifySecurityEvent({
         userId: event.userId,
+        deviceId: event.deviceId,
         deviceName: event.deviceName,
         eventType: event.eventType,
         timestampUtc: event.timestampUtc,
