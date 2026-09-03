@@ -29,14 +29,23 @@ class SentinelApplication : Application() {
         // (and is a no-op difference on older OS versions). NOT_EXPORTED
         // since only the OS itself, never another app, should be able to
         // trigger these.
-        val userPresentReceiver = UserPresentReceiver()
-        ContextCompat.registerReceiver(
-            this, userPresentReceiver, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED
-        )
+        // This runs unconditionally on every single process start, before
+        // any Activity - a failure here means the app can never open at
+        // all, not just this one feature failing. Both receivers are a
+        // nice-to-have fast path on top of the guaranteed 15-minute
+        // periodic job, so losing them is far preferable to losing the app.
+        try {
+            val userPresentReceiver = UserPresentReceiver()
+            ContextCompat.registerReceiver(
+                this, userPresentReceiver, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED
+            )
 
-        val usbConnectedReceiver = UsbConnectedReceiver()
-        ContextCompat.registerReceiver(
-            this, usbConnectedReceiver, IntentFilter(Intent.ACTION_POWER_CONNECTED), ContextCompat.RECEIVER_NOT_EXPORTED
-        )
+            val usbConnectedReceiver = UsbConnectedReceiver()
+            ContextCompat.registerReceiver(
+                this, usbConnectedReceiver, IntentFilter(Intent.ACTION_POWER_CONNECTED), ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (e: Exception) {
+            // Best effort - see comment above.
+        }
     }
 }

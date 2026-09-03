@@ -48,6 +48,22 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
     private val api = SentinelApiClient()
 
     override suspend fun doWork(): Result {
+        // This worker runs constantly in the background (every 15 minutes,
+        // plus every unlock) and shares the same process as whatever
+        // Activity the user has open - an uncaught exception anywhere below
+        // doesn't just fail this one check-in, it crashes the whole app,
+        // which is exactly what "MalmegaVille keeps stopping" at seemingly
+        // random moments turned out to be. A wide catch-all here is the
+        // right tradeoff: a failed check-in silently retrying next cycle
+        // beats taking the whole app down.
+        return try {
+            doWorkInternal()
+        } catch (e: Exception) {
+            Result.success()
+        }
+    }
+
+    private suspend fun doWorkInternal(): Result {
         val prefs = applicationContext.getSharedPreferences(SentinelPrefs.NAME, Context.MODE_PRIVATE)
         if (prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null) == null) {
             return Result.success()
@@ -157,7 +173,12 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
                     .addOnSuccessListener { location -> if (continuation.isActive) continuation.resume(location) }
                     .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
                 continuation.invokeOnCancellation { cancellationSource.cancel() }
-            } catch (e: SecurityException) {
+            } catch (e: Exception) {
+                // Was SecurityException-only - too narrow. Play Services can
+                // throw other things too (an outdated/misbehaving Play
+                // Services install being the likeliest culprit on a less
+                // common OEM device), and those weren't being caught here at
+                // all, crashing the whole app from a background worker.
                 if (continuation.isActive) continuation.resume(null)
             }
         }
