@@ -15,6 +15,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -69,7 +71,7 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val ownerPhoneNumber = (freshStatus?.optString("phoneNumber", "") ?: prefs.getString(KEY_CACHED_OWNER_PHONE, ""))
             ?.takeIf { it.isNotBlank() }
         val capturedAt = Instant.now().toString()
-        val location = getLastLocation(applicationContext)
+        val location = getCurrentLocation(applicationContext)
 
         if (hasInternetConnection(applicationContext)) {
             val photoBytes = runCatching { PhoneCameraCapture.captureJpeg(applicationContext) }.getOrNull()
@@ -107,17 +109,25 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return Result.success()
     }
 
-    private suspend fun getLastLocation(context: Context): Location? {
+    // Deliberately requests a fresh fix rather than the passively cached
+    // "last known location" - the phone may well have moved since whatever
+    // last determined that cached value, which could be stale by hours. High
+    // accuracy specifically favors GPS, the only positioning method that
+    // works with zero internet at all (WiFi/cell-tower positioning both
+    // require looking the signal up against an online database).
+    private suspend fun getCurrentLocation(context: Context): Location? {
         val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!hasFine && !hasCoarse) return null
 
         val client = LocationServices.getFusedLocationProviderClient(context)
+        val cancellationSource = CancellationTokenSource()
         return suspendCancellableCoroutine { continuation ->
             try {
-                client.lastLocation
+                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationSource.token)
                     .addOnSuccessListener { location -> if (continuation.isActive) continuation.resume(location) }
                     .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+                continuation.invokeOnCancellation { cancellationSource.cancel() }
             } catch (e: SecurityException) {
                 if (continuation.isActive) continuation.resume(null)
             }
