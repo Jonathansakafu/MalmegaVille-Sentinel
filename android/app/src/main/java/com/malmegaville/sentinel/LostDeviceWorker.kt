@@ -86,17 +86,22 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
                     )
                 }
             }
-        } else if (ownerPhoneNumber != null) {
+        } else if (ownerPhoneNumber != null && canSendThrottledSms(prefs)) {
             // No internet at all - the same "no internet required" fallback
             // the Windows agent's own modem-SMS path provides, just from the
-            // lost phone's side instead of a lost PC's side.
+            // lost phone's side instead of a lost PC's side. Throttled to at
+            // most once an hour (see canSendThrottledSms) - the 15-minute
+            // check-in interval alone would otherwise text on every single
+            // cycle for as long as the phone stays lost and offline.
             val text = if (location != null) {
                 "MalmegaVille Sentinel: this device was accessed while marked lost. " +
                     "Location: https://maps.google.com/?q=${location.latitude},${location.longitude}"
             } else {
                 "MalmegaVille Sentinel: this device was accessed while marked lost. Location unavailable."
             }
-            SentinelPrefs.sendSms(ownerPhoneNumber, text)
+            if (SentinelPrefs.sendSms(ownerPhoneNumber, text)) {
+                prefs.edit().putLong(KEY_LAST_SMS_SENT_AT, System.currentTimeMillis()).apply()
+            }
         }
 
         return Result.success()
@@ -119,6 +124,11 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         }
     }
 
+    private fun canSendThrottledSms(prefs: android.content.SharedPreferences): Boolean {
+        val lastSentAt = prefs.getLong(KEY_LAST_SMS_SENT_AT, 0L)
+        return System.currentTimeMillis() - lastSentAt >= SMS_THROTTLE_MILLIS
+    }
+
     private fun hasInternetConnection(context: Context): Boolean {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val network = manager.activeNetwork ?: return false
@@ -131,6 +141,8 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         const val KEY_TRIGGER = "trigger"
         private const val KEY_CACHED_IS_LOST = "cached_is_lost"
         private const val KEY_CACHED_OWNER_PHONE = "cached_owner_phone"
+        private const val KEY_LAST_SMS_SENT_AT = "last_lost_device_sms_sent_at"
+        private val SMS_THROTTLE_MILLIS = TimeUnit.HOURS.toMillis(1)
         private const val UNIQUE_PERIODIC_NAME = "lost_device_periodic_check"
 
         // The 15-minute interval is WorkManager's enforced minimum for
