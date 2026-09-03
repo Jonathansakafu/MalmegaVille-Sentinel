@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Device Location</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
     #empty { display: flex; height: 100%; align-items: center; justify-content: center;
@@ -13,7 +13,7 @@
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <script>
     var params = new URLSearchParams(window.location.search);
     var lat = parseFloat(params.get('lat'));
