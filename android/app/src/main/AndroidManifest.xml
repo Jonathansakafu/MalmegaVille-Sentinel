@@ -5,6 +5,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Since Android 10, holding only the foreground location permissions
+         above is not enough for a background process (WorkManager's
+         self-monitoring job included) to reliably get a real GPS fix -
+         without this, a fix attempt made while the app isn't in the
+         foreground can fail outright, silently falling back to the far less
+         accurate server-side IP location. Requested as its own separate
+         step in MainActivity, as Android requires. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Android blocks camera access from a plain background process since

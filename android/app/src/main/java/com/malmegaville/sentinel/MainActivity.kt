@@ -49,7 +49,26 @@ class MainActivity : AppCompatActivity() {
     private lateinit var passwordInput: EditText
 
     private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { /* no-op */ }
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            val gotForegroundLocation = results[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            if (gotForegroundLocation) requestBackgroundLocationIfNeeded()
+        }
+
+    // Android requires background location to be requested as its own
+    // separate step, only after foreground location is already granted -
+    // asking for it together with the others in one batch is silently
+    // ignored by the system. Without it, a location fix attempted while the
+    // app isn't in the foreground (the self-monitoring worker's normal case)
+    // can fail outright instead of returning a real GPS position.
+    private val requestBackgroundLocationLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op either way - foreground location alone still lets the app work */ }
+
+    private fun requestBackgroundLocationIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) return
+        requestBackgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -185,6 +204,11 @@ class MainActivity : AppCompatActivity() {
         }
         if (notGranted.isNotEmpty()) {
             requestPermissionLauncher.launch(notGranted.toTypedArray())
+        } else {
+            // Foreground location was already granted from a previous
+            // install of the app - the launcher callback above only fires
+            // for a request made just now, so this covers that case too.
+            requestBackgroundLocationIfNeeded()
         }
     }
 
