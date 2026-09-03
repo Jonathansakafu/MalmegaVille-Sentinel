@@ -1,14 +1,20 @@
 package com.malmegaville.sentinel
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.location.Location
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -75,6 +81,16 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val location = getCurrentLocation(applicationContext)
 
         if (hasInternetConnection(applicationContext)) {
+            // Android blocks camera access from a plain background process
+            // since Android 9 - not a bug to work around, a deliberate
+            // anti-spyware protection with no silent bypass. Verified live:
+            // capture succeeded once right after the app was foregrounded,
+            // then failed on every later background-triggered unlock.
+            // Briefly promoting to a foreground service (which forces a
+            // visible notification for the few seconds capture takes - an
+            // Android requirement, not a choice) is the only way to get a
+            // real camera fix from here.
+            runCatching { setForeground(createCaptureForegroundInfo()) }
             val photoBytes = runCatching { PhoneCameraCapture.captureJpeg(applicationContext) }.getOrNull()
             if (photoBytes != null) {
                 runCatching {
@@ -147,6 +163,35 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         }
     }
 
+    // Worded generically on purpose - this can run while whoever currently
+    // has the phone unlocks it, and the point of the capture is to identify
+    // them, not warn them it's happening.
+    private fun createCaptureForegroundInfo(): ForegroundInfo {
+        val channelId = "sentinel_security_check"
+        val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val existing = manager.getNotificationChannel(channelId)
+            if (existing == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(channelId, "Security check", NotificationManager.IMPORTANCE_MIN)
+                )
+            }
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setContentTitle("MalmegaVille Sentinel")
+            .setContentText("Running a security check…")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(true)
+            .build()
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun canSendThrottledSms(prefs: android.content.SharedPreferences): Boolean {
         val lastSentAt = prefs.getLong(KEY_LAST_SMS_SENT_AT, 0L)
         return System.currentTimeMillis() - lastSentAt >= SMS_THROTTLE_MILLIS
@@ -175,6 +220,7 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         private const val KEY_CACHED_OWNER_PHONE = "cached_owner_phone"
         private const val KEY_LAST_SMS_SENT_AT = "last_lost_device_sms_sent_at"
         private val SMS_THROTTLE_MILLIS = TimeUnit.HOURS.toMillis(1)
+        private const val NOTIFICATION_ID = 4171
         private const val UNIQUE_PERIODIC_NAME = "lost_device_periodic_check"
 
         // The 15-minute interval is WorkManager's enforced minimum for
