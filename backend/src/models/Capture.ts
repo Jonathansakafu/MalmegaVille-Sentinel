@@ -4,7 +4,7 @@ const captureSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   deviceId: { type: String, required: true },
   captureType: { type: String, enum: ['webcam_photo', 'usb_file', 'usb_manifest', 'location'], required: true },
-  triggerEvent: { type: String, enum: ['usb_insert', 'login_unlock'] },
+  triggerEvent: { type: String, enum: ['usb_insert', 'login_unlock', 'sign_in', 'phone_check', 'usb_connect'] },
   sessionId: { type: String },
   originalFileName: { type: String },
   originalPath: { type: String },

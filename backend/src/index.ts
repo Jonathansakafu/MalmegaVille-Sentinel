@@ -79,6 +79,31 @@ if (fs.existsSync(frontendDistPath)) {
   });
 }
 
+// Express 4 does not forward a rejected promise thrown inside an async route
+// handler to this - it only catches next(err) calls and synchronous throws.
+// Kept as defense-in-depth for those cases.
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled route error', err);
+  if (res.headersSent) return;
+  res.status(500).json({ message: 'Internal server error.' });
+});
+
+// The actual crash path: an async route handler throwing (e.g. a Mongoose
+// ValidationError from an unawaited-for-errors .create() call) becomes an
+// unhandledRejection with no listener, which is a fatal, process-exiting
+// event in Node by default. Verified live - one malformed request from a
+// single device (a triggerEvent value not yet in the Capture schema's enum)
+// took the whole backend down for every user until Railway restarted it.
+// Logging and continuing here trades "that one request quietly fails" for
+// "the service survives it" - the right tradeoff for something a stranger's
+// device can trigger on a shared server.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception', error);
+});
+
 async function start() {
   validateStartupConfig();
 
