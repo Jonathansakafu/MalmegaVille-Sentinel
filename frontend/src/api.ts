@@ -98,6 +98,17 @@ export async function setDeviceLostStatus(token: string, id: string, isLost: boo
   });
 }
 
+export async function deleteDevice(token: string, id: string): Promise<void> {
+  const response = await fetch(`/api/devices/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message ?? 'Failed to remove device.');
+  }
+}
+
 export async function fetchCaptures(token: string, deviceId?: string): Promise<Capture[]> {
   const query = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : '';
   return request(`/api/captures${query}`, {

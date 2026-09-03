@@ -1,4 +1,4 @@
-import { Images, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Images, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import { Device } from '../api';
 import StatusBadge from './StatusBadge';
 
@@ -6,12 +6,14 @@ function DeviceCard({
   device,
   pending,
   onToggleLost,
-  onViewCaptures
+  onViewCaptures,
+  onDelete
 }: {
   device: Device;
   pending: boolean;
   onToggleLost: (device: Device) => void;
   onViewCaptures: (deviceId: string) => void;
+  onDelete: (device: Device) => void;
 }) {
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
@@ -42,6 +44,18 @@ function DeviceCard({
         >
           <Images size={14} />
           View Captures
+        </button>
+        <button
+          onClick={() => {
+            if (window.confirm(`Remove "${device.name}" from your device inventory? Its past captures are kept.`)) {
+              onDelete(device);
+            }
+          }}
+          type="button"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-slate-400 transition hover:border-rose-500 hover:text-rose-400"
+        >
+          <Trash2 size={14} />
+          Remove
         </button>
       </div>
     </div>

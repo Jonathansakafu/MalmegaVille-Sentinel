@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ShieldQuestion, ShieldAlert, RefreshCw, LayoutGrid } from 'lucide-react';
-import { Capture, Device, Incident, fetchCaptures, fetchDevices, fetchIncidents, setDeviceLostStatus } from '../api';
+import { Capture, Device, Incident, deleteDevice, fetchCaptures, fetchDevices, fetchIncidents, setDeviceLostStatus } from '../api';
 import Header, { TabKey } from '../components/Header';
 import DeviceCard from '../components/DeviceCard';
 import CapturesSection from '../components/CapturesSection';
@@ -96,6 +96,19 @@ function DashboardPage({
       setMessage(error instanceof Error ? error.message : 'Unable to update device status.');
     } finally {
       setLostStatusPending(null);
+    }
+  };
+
+  const handleDeleteDevice = async (device: Device) => {
+    if (!device._id) {
+      return;
+    }
+
+    try {
+      await deleteDevice(token, device._id);
+      setDevices((prev) => prev.filter((d) => d._id !== device._id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to remove device.');
     }
   };
 
@@ -242,6 +255,7 @@ function DashboardPage({
                         pending={lostStatusPending === device._id}
                         onToggleLost={handleToggleLost}
                         onViewCaptures={openCapturesForDevice}
+                        onDelete={handleDeleteDevice}
                       />
                     ))}
                   </div>

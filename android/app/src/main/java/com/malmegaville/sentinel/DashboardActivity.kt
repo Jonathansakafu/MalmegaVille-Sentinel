@@ -360,6 +360,27 @@ class DashboardActivity : AppCompatActivity() {
                 }
             }
         )
+        row.addView(Ui.spacer(this, 8))
+        row.addView(
+            Ui.outlineButton(this, "Remove") {
+                if (deviceMongoId.isBlank()) return@outlineButton
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Remove device")
+                    .setMessage("Remove \"${device.optString("name", "this device")}\" from your inventory? Its past captures are kept.")
+                    .setPositiveButton("Remove") { _, _ ->
+                        CoroutineScope(Dispatchers.Main).launch {
+                            try {
+                                withContext(Dispatchers.IO) { api.deleteDevice(authToken, deviceMongoId) }
+                                loadDashboardTab()
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(this@DashboardActivity, "Failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        )
         return row
     }
 }

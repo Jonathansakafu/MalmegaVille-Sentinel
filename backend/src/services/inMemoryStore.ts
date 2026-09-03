@@ -134,6 +134,13 @@ export function setDeviceLostStatus(id: string, userId: string, isLost: boolean)
   return device;
 }
 
+export function removeDeviceByIdForUser(id: string, userId: string): boolean {
+  const index = devices.findIndex((device) => device.id === id && device.userId === userId);
+  if (index === -1) return false;
+  devices.splice(index, 1);
+  return true;
+}
+
 export interface InMemoryCapture {
   id: string;
   userId: string;

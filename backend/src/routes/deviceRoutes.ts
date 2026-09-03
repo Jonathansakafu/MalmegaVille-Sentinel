@@ -6,7 +6,7 @@ import { validateBody } from '../middleware/validate.js';
 import Device from '../models/Device.js';
 import { dblessTestMode } from '../config.js';
 import { recordAuditLog } from '../services/auditLogService.js';
-import { listDevicesForUser, upsertDevice, setDeviceLostStatus } from '../services/inMemoryStore.js';
+import { listDevicesForUser, upsertDevice, setDeviceLostStatus, removeDeviceByIdForUser } from '../services/inMemoryStore.js';
 
 const router = Router();
 
@@ -116,6 +116,51 @@ router.patch('/:id/lost-status', validateBody(lostStatusSchema), async (req, res
   });
 
   res.json(device);
+});
+
+// Lets a user clean up stale/duplicate device entries themselves - e.g. the
+// Android app previously generated a fresh random deviceId on every
+// uninstall/reinstall, registering what looked like a brand new device each
+// time even though it was the same phone. Only removes the Device record;
+// its past captures are left alone (same as the captures list not
+// cascading when its owning device disappears elsewhere in the codebase).
+router.delete('/:id', async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (dblessTestMode) {
+    const removed = removeDeviceByIdForUser(req.params.id, userId);
+    if (!removed) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+    recordAuditLog({
+      userId,
+      action: 'device.removed',
+      actorType: 'user',
+      description: 'Device removed from inventory.',
+      targetType: 'device',
+      targetId: req.params.id
+    });
+    return res.status(204).send();
+  }
+
+  const device = await Device.findOneAndDelete({ _id: req.params.id, userId });
+  if (!device) {
+    return res.status(404).json({ message: 'Device not found.' });
+  }
+
+  recordAuditLog({
+    userId,
+    action: 'device.removed',
+    actorType: 'user',
+    description: `Device "${device.name}" removed from inventory.`,
+    targetType: 'device',
+    targetId: device.deviceId
+  });
+
+  res.status(204).send();
 });
 
 export default router;

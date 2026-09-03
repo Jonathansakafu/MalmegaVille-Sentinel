@@ -52,6 +52,14 @@ class SentinelApiClient(private val httpClient: OkHttpClient = OkHttpClient()) {
         return executeJson(authedRequest("/devices/$deviceMongoId/lost-status", token).patch(body).build())
     }
 
+    fun deleteDevice(token: String, deviceMongoId: String) {
+        httpClient.newCall(authedRequest("/devices/$deviceMongoId", token).delete().build()).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Delete failed (${response.code}).")
+            }
+        }
+    }
+
     fun fetchIncidents(token: String): JSONArray =
         executeJsonArray(authedRequest("/incidents", token).get().build())
 

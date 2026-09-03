@@ -2,6 +2,7 @@ package com.malmegaville.sentinel
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import android.telephony.SmsManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -28,8 +29,21 @@ object SentinelPrefs {
     // token (which is for the relay-pairing feature and rotates over time) -
     // this is what the phone registers as a trackable Device and reports its
     // own lost-status checks under, mirroring DeviceIdentity.cs on Windows.
+    //
+    // Backed by ANDROID_ID (stable for this app's signing key across
+    // uninstall/reinstall - it only changes on factory reset) rather than a
+    // random UUID cached in SharedPreferences, which a reinstall wipes.
+    // Verified live: a UUID here meant every reinstall registered as a brand
+    // new "device" in the account's inventory instead of the same phone
+    // checking back in. Falls back to a generated id in the rare case
+    // ANDROID_ID is unavailable (some emulators return null/"9774d56d...").
     fun getOrCreatePhoneDeviceId(context: Context): String {
         val prefs = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        if (!androidId.isNullOrBlank() && androidId != "9774d56d682e549c") {
+            return "android-$androidId"
+        }
+
         val existing = prefs.getString(KEY_PHONE_DEVICE_ID, null)
         if (existing != null) return existing
         val created = UUID.randomUUID().toString()
