@@ -277,7 +277,16 @@ object CapturesTab {
         if (lat.isNaN() || lon.isNaN()) {
             row.addView(Ui.bodyText(activity, "Location unavailable for this attempt."))
         } else {
-            row.addView(Ui.bodyText(activity, "%.5f, %.5f".format(lat, lon)))
+            val placeText = Ui.bodyText(activity, "Resolving location…")
+            row.addView(placeText)
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    val place = withContext(Dispatchers.IO) { activity.api.reverseGeocode(activity.authToken, lat, lon) }
+                    placeText.text = place.optString("label", "Unknown location")
+                } catch (e: Exception) {
+                    placeText.text = "Unknown location"
+                }
+            }
             row.addView(Ui.spacer(activity, 8))
             val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
             buttonRow.addView(

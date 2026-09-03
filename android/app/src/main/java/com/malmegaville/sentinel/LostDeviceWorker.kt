@@ -14,6 +14,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -109,12 +110,19 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return Result.success()
     }
 
-    // Deliberately requests a fresh fix rather than the passively cached
+    // Deliberately requests a fresh-ish fix rather than the passively cached
     // "last known location" - the phone may well have moved since whatever
     // last determined that cached value, which could be stale by hours. High
     // accuracy specifically favors GPS, the only positioning method that
     // works with zero internet at all (WiFi/cell-tower positioning both
     // require looking the signal up against an online database).
+    //
+    // Uses CurrentLocationRequest with an explicit 25s window and accepts a
+    // fix up to 2 minutes old, rather than the bare Priority overload with no
+    // timeout - a brand new GPS fix can take a while to acquire (especially
+    // indoors), and without a bound this either waited indefinitely or the
+    // underlying implementation gave up too quickly, silently falling back
+    // to the server's much less accurate IP-based location every time.
     private suspend fun getCurrentLocation(context: Context): Location? {
         val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -122,9 +130,14 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
         val client = LocationServices.getFusedLocationProviderClient(context)
         val cancellationSource = CancellationTokenSource()
+        val request = CurrentLocationRequest.Builder()
+            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setDurationMillis(25_000)
+            .setMaxUpdateAgeMillis(2 * 60 * 1000)
+            .build()
         return suspendCancellableCoroutine { continuation ->
             try {
-                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationSource.token)
+                client.getCurrentLocation(request, cancellationSource.token)
                     .addOnSuccessListener { location -> if (continuation.isActive) continuation.resume(location) }
                     .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
                 continuation.invokeOnCancellation { cancellationSource.cancel() }
@@ -139,12 +152,21 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return System.currentTimeMillis() - lastSentAt >= SMS_THROTTLE_MILLIS
     }
 
+    // NET_CAPABILITY_VALIDATED requires Android to have already finished its
+    // own background connectivity probe (an HTTP check to a Google server)
+    // for the active network - right after an unlock, or on carriers that
+    // interfere with that probe, this can still be false for a genuinely
+    // working connection. Verified live: this caused the offline SMS
+    // fallback to fire (and the much less accurate server-side IP location
+    // to be used instead of GPS) on a phone that actually had data the whole
+    // time. NET_CAPABILITY_INTERNET alone (the network's own declared
+    // capability) is a looser but much more reliable signal for "is there
+    // actually a network to try".
     private fun hasInternetConnection(context: Context): Boolean {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val network = manager.activeNetwork ?: return false
         val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     companion object {

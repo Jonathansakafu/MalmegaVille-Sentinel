@@ -60,6 +60,9 @@ class SentinelApiClient(private val httpClient: OkHttpClient = OkHttpClient()) {
         }
     }
 
+    fun reverseGeocode(token: String, lat: Double, lon: Double): JSONObject =
+        executeJson(authedRequest("/geocode/reverse?lat=$lat&lon=$lon", token).get().build())
+
     fun fetchIncidents(token: String): JSONArray =
         executeJsonArray(authedRequest("/incidents", token).get().build())
 

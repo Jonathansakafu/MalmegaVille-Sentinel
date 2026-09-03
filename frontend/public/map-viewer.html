@@ -6,15 +6,26 @@
   <title>Device Location</title>
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
   <style>
-    html, body, #map { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
+    html, body { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
+    #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
     #empty { display: flex; height: 100%; align-items: center; justify-content: center;
       font-family: -apple-system, sans-serif; color: #94a3b8; text-align: center; padding: 24px; }
-    #routeInfo { position: absolute; z-index: 1000; left: 8px; bottom: 8px; background: rgba(11,15,11,0.85);
+    #routeInfo { position: absolute; z-index: 1000; left: 8px; bottom: 64px; background: rgba(11,15,11,0.85);
       color: #e2e8f0; font-family: -apple-system, sans-serif; font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    #trackBar { position: absolute; z-index: 1000; left: 0; right: 0; bottom: 0; padding: 8px;
+      font-family: -apple-system, sans-serif; display: none; }
+    #trackButton { display: block; width: 100%; border: 1px solid #334155; background: #0f172a; color: #7ed957;
+      font-size: 14px; font-weight: 600; padding: 10px; border-radius: 14px; }
+    #trackButton.tracking { border-color: rgba(244,63,94,0.6); background: rgba(244,63,94,0.1); color: #fda4af; }
+    #trackStatus { margin: 6px 0 0; text-align: center; font-size: 13px; color: #e2e8f0; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="trackBar">
+    <button id="trackButton" type="button">Track my location live</button>
+    <p id="trackStatus"></p>
+  </div>
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script>
     // Surfaces any failure directly on the page instead of a silent blank/
@@ -29,40 +40,23 @@
       showError('Map script error: ' + (event.message || 'unknown'));
     });
 
-    function addRouteInfo(map, text) {
-      var el = document.createElement('div');
-      el.id = 'routeInfo';
-      el.textContent = text;
-      document.body.appendChild(el);
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      var R = 6371;
+      var dLat = (lat2 - lat1) * Math.PI / 180;
+      var dLon = (lon2 - lon1) * Math.PI / 180;
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // Simplified single-route counterpart to the web dashboard's RouteMap.tsx
-    // (that one offers alternative routes to pick from - this popup just
-    // shows the best one, which is enough for "which way do I go").
-    function drawRoute(map, originLat, originLon, targetLat, targetLon) {
-      var originIcon = L.icon({
-        iconUrl: '/vendor/leaflet/images/marker-icon.png',
-        iconRetinaUrl: '/vendor/leaflet/images/marker-icon-2x.png',
-        shadowUrl: '/vendor/leaflet/images/marker-shadow.png',
-        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
-        className: 'hue-rotate-[220deg]'
-      });
-      L.marker([originLat, originLon], { icon: originIcon }).addTo(map).bindPopup('You are here');
-
-      var url = 'https://router.project-osrm.org/route/v1/driving/' + originLon + ',' + originLat + ';' + targetLon + ',' + targetLat + '?overview=full&geometries=geojson';
-      fetch(url)
-        .then(function (response) { return response.ok ? response.json() : null; })
-        .then(function (body) {
-          var route = body && body.routes && body.routes[0];
-          if (!route) return;
-          var points = route.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
-          L.polyline(points, { color: '#7ed957', weight: 5, opacity: 0.9 }).addTo(map);
-          map.fitBounds(L.latLngBounds([[targetLat, targetLon], [originLat, originLon]]), { padding: [32, 32] });
-          var km = (route.distance / 1000).toFixed(1);
-          var min = Math.round(route.duration / 60);
-          addRouteInfo(map, km + ' km · ' + min + ' min drive');
-        })
-        .catch(function () { /* route is a bonus - the pin alone is still useful without it */ });
+    function bearingCompass(lat1, lon1, lat2, lon2) {
+      var y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+      var x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+        Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+      var degrees = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      var directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+      return directions[Math.round(degrees / 45) % 8];
     }
 
     try {
@@ -86,13 +80,101 @@
         L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
 
         if (wantsRoute && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            function (position) {
-              drawRoute(map, position.coords.latitude, position.coords.longitude, lat, lon);
-            },
-            function () { /* no origin fix available - the destination pin alone still shows */ },
-            { enableHighAccuracy: true, timeout: 15000 }
-          );
+          var originIcon = L.icon({
+            iconUrl: '/vendor/leaflet/images/marker-icon.png',
+            iconRetinaUrl: '/vendor/leaflet/images/marker-icon-2x.png',
+            shadowUrl: '/vendor/leaflet/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+            className: 'hue-rotate-[220deg]'
+          });
+
+          var originMarker = null;
+          var routeLine = null;
+          var routeInfoEl = null;
+          var lastRouteFetchPos = null;
+          var watchId = null;
+          // Recalculating the route is a network call, so it's only
+          // re-triggered once the live position has moved meaningfully -
+          // otherwise every GPS tick (which jitters by tens of meters even
+          // standing still) would hammer the routing API, same threshold as
+          // the web dashboard's LiveTracker.
+          var ROUTE_REFETCH_THRESHOLD_KM = 0.15;
+
+          function setRouteInfo(text) {
+            if (!routeInfoEl) {
+              routeInfoEl = document.createElement('div');
+              routeInfoEl.id = 'routeInfo';
+              document.body.appendChild(routeInfoEl);
+            }
+            routeInfoEl.textContent = text;
+          }
+
+          function fetchRoute(originLat, originLon) {
+            var url = 'https://router.project-osrm.org/route/v1/driving/' + originLon + ',' + originLat + ';' + lon + ',' + lat + '?overview=full&geometries=geojson';
+            fetch(url)
+              .then(function (response) { return response.ok ? response.json() : null; })
+              .then(function (body) {
+                var route = body && body.routes && body.routes[0];
+                if (!route) return;
+                var points = route.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+                if (routeLine) routeLine.remove();
+                routeLine = L.polyline(points, { color: '#7ed957', weight: 5, opacity: 0.9 }).addTo(map);
+                map.fitBounds(L.latLngBounds([[lat, lon], [originLat, originLon]]), { padding: [32, 32] });
+                var km = (route.distance / 1000).toFixed(1);
+                var min = Math.round(route.duration / 60);
+                setRouteInfo(km + ' km · ' + min + ' min drive');
+              })
+              .catch(function () { /* route is a bonus - the distance/heading text below still works without it */ });
+          }
+
+          function handlePosition(position) {
+            var originLat = position.coords.latitude;
+            var originLon = position.coords.longitude;
+
+            if (originMarker) {
+              originMarker.setLatLng([originLat, originLon]);
+            } else {
+              originMarker = L.marker([originLat, originLon], { icon: originIcon }).addTo(map).bindPopup('You are here');
+            }
+
+            var distanceKm = haversineKm(originLat, originLon, lat, lon);
+            var distanceText = distanceKm < 1 ? Math.round(distanceKm * 1000) + ' m' : distanceKm.toFixed(1) + ' km';
+            document.getElementById('trackStatus').textContent = distanceText + ' away, heading ' + bearingCompass(originLat, originLon, lat, lon);
+
+            var moved = !lastRouteFetchPos || haversineKm(lastRouteFetchPos.lat, lastRouteFetchPos.lon, originLat, originLon) > ROUTE_REFETCH_THRESHOLD_KM;
+            if (moved) {
+              lastRouteFetchPos = { lat: originLat, lon: originLon };
+              fetchRoute(originLat, originLon);
+            }
+          }
+
+          function stopTracking() {
+            if (watchId !== null) {
+              navigator.geolocation.clearWatch(watchId);
+              watchId = null;
+            }
+            if (originMarker) { originMarker.remove(); originMarker = null; }
+            if (routeLine) { routeLine.remove(); routeLine = null; }
+            if (routeInfoEl) { routeInfoEl.remove(); routeInfoEl = null; }
+            lastRouteFetchPos = null;
+            document.getElementById('trackStatus').textContent = '';
+            document.getElementById('trackButton').textContent = 'Track my location live';
+            document.getElementById('trackButton').classList.remove('tracking');
+          }
+
+          function startTracking() {
+            document.getElementById('trackButton').textContent = 'Finding your location…';
+            watchId = navigator.geolocation.watchPosition(handlePosition, function (err) {
+              document.getElementById('trackStatus').textContent = err.code === err.PERMISSION_DENIED ? 'Location permission denied.' : 'Could not get your location.';
+            }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+            document.getElementById('trackButton').textContent = 'Stop live tracking';
+            document.getElementById('trackButton').classList.add('tracking');
+          }
+
+          document.getElementById('trackBar').style.display = 'block';
+          document.getElementById('trackButton').addEventListener('click', function () {
+            if (watchId !== null) stopTracking(); else startTracking();
+          });
         }
       }
     } catch (error) {
