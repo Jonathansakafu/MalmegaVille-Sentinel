@@ -125,9 +125,21 @@ async function start() {
     console.warn('Running in DB-less test mode: skipping MongoDB connection');
   }
 
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`MalmegaVille Sentinel backend listening on http://localhost:${port}`);
   });
+
+  // Railway stops the old container with SIGTERM the instant a new deploy's
+  // container is ready - with no handler, Node's default SIGTERM behavior
+  // is to die immediately, which looks identical to an actual crash to
+  // Railway's monitoring and triggers a "deployment crashed" alert email
+  // for what was really just a normal redeploy. Exiting 0 on purpose here
+  // tells it this was a clean, intentional stop.
+  const shutdown = () => {
+    server.close(() => process.exit(0));
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 start().catch((error) => {
