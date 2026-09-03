@@ -19,6 +19,10 @@ object SentinelPrefs {
     const val KEY_AUTH_TOKEN = "auth_token"
     const val KEY_PHONE_DEVICE_ID = "phone_device_id"
     const val BACKEND_BASE_URL = "https://app-production-fd2d.up.railway.app/api"
+    // The web dashboard's own domain (no /api suffix) - for our own hosted
+    // pages like map-viewer.html, kept in-app via a WebView rather than
+    // handing the user off to a separate Maps app.
+    const val WEB_APP_BASE_URL = "https://app-production-fd2d.up.railway.app"
 
     // A stable identifier for the phone itself, separate from its FCM push
     // token (which is for the relay-pairing feature and rotates over time) -

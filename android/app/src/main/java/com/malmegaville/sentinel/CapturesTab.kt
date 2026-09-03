@@ -1,11 +1,10 @@
 package com.malmegaville.sentinel
 
 import android.app.Dialog
-import android.content.Intent
 import android.graphics.BitmapFactory
-import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
+import android.webkit.WebView
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -18,11 +17,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-// Android equivalent of CapturesSection.tsx. Deliberately simpler in a couple
-// of spots versus the web version: locations open in the phone's own Maps
-// app (an Intent) rather than an embedded interactive route/live-tracking
-// map, since that would need a Google Maps SDK key of its own; USB files are
-// listed with delete but not downloadable to the phone (there's little
+// Android equivalent of CapturesSection.tsx. Deliberately simpler in one
+// spot versus the web version: locations show a simple pinned map (our own
+// map-viewer.html, in an in-app WebView popup - never hands off to a
+// separate Maps app) rather than the web dashboard's full interactive
+// route/live-tracking map. USB files are listed with delete but not
+// downloadable to the phone (there's little
 // reason to copy a stolen device's files onto the relay phone too).
 object CapturesTab {
 
@@ -205,18 +205,38 @@ object CapturesTab {
             row.addView(Ui.spacer(activity, 8))
             val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
             buttonRow.addView(
-                Ui.outlineButton(activity, "Open in Maps") {
-                    val uri = Uri.parse("geo:$lat,$lon?q=$lat,$lon")
-                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                    runCatching { activity.startActivity(intent) }
-                        .onFailure { Toast.makeText(activity, "No maps app available.", Toast.LENGTH_SHORT).show() }
-                },
+                Ui.outlineButton(activity, "View on Map") { showLocationMapDialog(activity, lat, lon) },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = Ui.dp(activity, 8) }
             )
             buttonRow.addView(deleteButton(activity, location, listContainer))
             row.addView(buttonRow)
         }
         return row
+    }
+
+    // Shows the location on our own map-viewer.html (Leaflet + OpenStreetMap,
+    // same as the web dashboard) in a WebView inside a Dialog - stays inside
+    // this app the whole time, no external Maps app involved.
+    @Suppress("SetJavaScriptEnabled")
+    private fun showLocationMapDialog(activity: DashboardActivity, lat: Double, lon: Double) {
+        val webView = WebView(activity).apply {
+            settings.javaScriptEnabled = true
+            loadUrl("${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon")
+        }
+
+        val dialog = Dialog(activity)
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.bg_card)
+            val pad = Ui.dp(activity, 12)
+            setPadding(pad, pad, pad, pad)
+        }
+        root.addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(activity, 420)))
+        root.addView(Ui.spacer(activity, 12))
+        root.addView(Ui.outlineButton(activity, "Close") { dialog.dismiss() })
+
+        dialog.setContentView(root)
+        dialog.show()
     }
 
     private fun usbFileRow(activity: DashboardActivity, file: JSONObject, listContainer: LinearLayout): LinearLayout {

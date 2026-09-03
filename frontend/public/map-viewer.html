@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Device Location</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; background: #0b0f0b; }
+    #empty { display: flex; height: 100%; align-items: center; justify-content: center;
+      font-family: -apple-system, sans-serif; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var lat = parseFloat(params.get('lat'));
+    var lon = parseFloat(params.get('lon'));
+
+    if (!isNaN(lat) && !isNaN(lon)) {
+      var map = L.map('map').setView([lat, lon], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
+    } else {
+      document.getElementById('map').outerHTML = '<div id="empty">No location available.</div>';
+    }
+  </script>
+</body>
+</html>
