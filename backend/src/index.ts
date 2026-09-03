@@ -135,8 +135,20 @@ async function start() {
   // Railway's monitoring and triggers a "deployment crashed" alert email
   // for what was really just a normal redeploy. Exiting 0 on purpose here
   // tells it this was a clean, intentional stop.
+  //
+  // server.close()'s callback only fires once every open connection closes
+  // on its own (a lingering keep-alive connection can hold it open
+  // indefinitely) - if that takes longer than Railway's own grace period
+  // before it sends SIGKILL, the process still dies looking like a crash,
+  // which is exactly what kept happening even with the shutdown handler in
+  // place. The timeout below forces a clean exit regardless, so the process
+  // never depends on every connection cooperating.
   const shutdown = () => {
-    server.close(() => process.exit(0));
+    const forceExit = setTimeout(() => process.exit(0), 3000);
+    server.close(() => {
+      clearTimeout(forceExit);
+      process.exit(0);
+    });
   };
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
