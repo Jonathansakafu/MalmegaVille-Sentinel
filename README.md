@@ -4,6 +4,8 @@ MalmegaVille Sentinel is a personal endpoint security platform: it watches your 
 
 **Live dashboard:** <https://app-production-fd2d.up.railway.app>
 
+**Part of my portfolio:** <https://portfolio-seven-dun-d8pz65t7l6.vercel.app>
+
 ## How it works
 
 1. Two Windows programs run on the protected PC: a background **Core Service** (Windows Service, starts automatically at boot and keeps running even if you sign out or close the desktop app) and a **Desktop App** (tray icon, handles login, notification settings, and — because it runs in your interactive session rather than as a background service — webcam/location capture).
