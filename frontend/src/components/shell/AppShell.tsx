@@ -6,7 +6,6 @@ import {
   BarChart3,
   Bell,
   ChevronDown,
-  Cpu,
   Database,
   FileWarning,
   FolderLock,
@@ -25,6 +24,8 @@ import {
   X
 } from 'lucide-react';
 import { sound } from '../../lib/sound';
+import { Sparkline } from '../hud/Sparkline';
+import StatusBar from '../hud/StatusBar';
 
 export type ShellCounters = {
   devices: number;
@@ -135,6 +136,9 @@ function AppShell({
                 >
                   <Menu size={18} />
                 </button>
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-white sm:hidden">
+                  Sentinel
+                </span>
                 <p className="hidden font-mono text-[11px] uppercase tracking-[0.24em] text-brand-green/80 sm:block">
                   Protect. Detect. Respond.
                 </p>
@@ -197,14 +201,13 @@ function AppShell({
 
           <main className="px-4 py-6 sm:px-6 sm:py-8">{children}</main>
 
-          <footer className="border-t border-brand-green/10 px-4 py-3 sm:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-600">
-              <span className="flex items-center gap-2 text-brand-green/70">
-                <Cpu size={12} /> MalmegaVille Sentinel
-              </span>
-              <span>{timeLabel} · session encrypted</span>
-            </div>
-          </footer>
+          <StatusBar
+            messages={[
+              `${counters.online}/${counters.devices} agents reachable · ${counters.incidents} incidents logged`,
+              `${counters.critical} critical · ${counters.captures} evidence records secured`,
+              'session encrypted · protect · detect · respond'
+            ]}
+          />
         </div>
       </div>
     </div>
@@ -266,6 +269,8 @@ export function StatTile({
   icon: Icon,
   tone = 'green',
   hint,
+  delta,
+  series,
   onClick
 }: {
   label: string;
@@ -273,26 +278,38 @@ export function StatTile({
   icon: typeof Radar;
   tone?: 'green' | 'cyan' | 'danger' | 'amber';
   hint?: string;
+  delta?: string;
+  series?: number[];
   onClick?: () => void;
 }) {
   const tones = {
-    green: 'text-brand-green border-brand-green/25',
-    cyan: 'text-brand-cyan border-brand-cyan/25',
-    danger: 'text-brand-danger border-brand-danger/30',
-    amber: 'text-brand-amber border-brand-amber/30'
+    green: { text: 'text-brand-green', border: 'border-brand-green/25', tile: 'border-brand-green/30 bg-brand-green/10', spark: 'green' as const },
+    cyan: { text: 'text-brand-cyan', border: 'border-brand-cyan/25', tile: 'border-brand-cyan/30 bg-brand-cyan/10', spark: 'cyan' as const },
+    danger: { text: 'text-brand-danger', border: 'border-brand-danger/30', tile: 'border-brand-danger/30 bg-brand-danger/10', spark: 'danger' as const },
+    amber: { text: 'text-brand-amber', border: 'border-brand-amber/30', tile: 'border-brand-amber/30 bg-brand-amber/10', spark: 'amber' as const }
   } as const;
+  const palette = tones[tone];
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`holo-panel holo-corner group flex w-full flex-col gap-2 p-4 text-left transition hover:-translate-y-0.5 ${tones[tone]} ${onClick ? '' : 'cursor-default'}`}
+      className={`holo-panel holo-corner group flex w-full flex-col p-4 text-left transition hover:-translate-y-0.5 ${palette.border} ${onClick ? '' : 'cursor-default'}`}
     >
-      <div className="flex items-center justify-between">
-        <span className="hud-label">{label}</span>
-        <Icon size={18} className="opacity-80 transition group-hover:scale-110" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block truncate font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-[#a3d4b4]/70 sm:text-[0.66rem] sm:tracking-[0.18em]">{label}</span>
+          <p className="mt-1.5 font-mono text-[1.9rem] font-bold leading-none text-white">{value}</p>
+        </div>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center border sm:h-9 sm:w-9 ${palette.tile} ${palette.text}`}>
+          <Icon size={15} className="opacity-90 transition group-hover:scale-110 sm:hidden" />
+          <Icon size={17} className="hidden opacity-90 transition group-hover:scale-110 sm:block" />
+        </span>
       </div>
-      <p className="font-mono text-3xl font-bold text-white">{value}</p>
-      {hint ? <p className="text-[11px] text-slate-400">{hint}</p> : null}
+      <div className="mt-1.5 flex items-center justify-between gap-2 font-mono text-[9px] uppercase tracking-[0.12em]">
+        <span className="truncate text-slate-500">{hint}</span>
+        {delta ? <span className={`hidden shrink-0 sm:inline ${palette.text}`}>{delta}</span> : null}
+      </div>
+      {series ? <Sparkline values={series} tone={palette.spark} height={30} className="mt-2.5 opacity-80" /> : null}
     </button>
   );
 }

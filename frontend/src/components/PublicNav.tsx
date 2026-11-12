@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Shield, X } from 'lucide-react';
 
@@ -11,7 +11,13 @@ const LINKS = [
 
 function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `border-b-2 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] transition ${
@@ -22,8 +28,8 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
     <header className="relative border-b border-brand-green/20 bg-ink-900/70 backdrop-blur">
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <Link to="/" className="flex min-w-0 items-center gap-3" onClick={() => setMenuOpen(false)}>
-          <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center border border-brand-green/50 bg-brand-green/10 text-brand-green">
-            <Shield size={20} />
+          <span className="shield-badge relative flex h-11 w-11 flex-shrink-0 items-center justify-center border border-brand-green/50 bg-brand-green/10 text-brand-green">
+            <Shield size={21} />
             <span className="absolute inset-0 animate-pulse-ring border border-brand-green/30" />
           </span>
           <span className="min-w-0">
@@ -40,7 +46,14 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
+          <span className="hidden items-center gap-2 border border-brand-green/20 bg-brand-green/[0.06] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-brand-green/90 xl:flex">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-green" />
+            Systems nominal
+          </span>
+          <span className="hidden font-mono text-[10px] tabular-nums tracking-[0.12em] text-slate-500 xl:block">
+            {clock.toLocaleTimeString([], { hour12: false })}
+          </span>
           {isAuthenticated ? (
             <button
               onClick={() => navigate('/dashboard')}

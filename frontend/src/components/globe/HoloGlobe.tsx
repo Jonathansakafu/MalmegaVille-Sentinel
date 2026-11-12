@@ -41,6 +41,10 @@ function HoloGlobe({ pins, reducedMotion }: { pins: GlobePin[]; reducedMotion: b
     const height = mount.clientHeight || 420;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.setSize(width, height);
+    // Without this the canvas keeps its pixel width as intrinsic size after a
+    // viewport shrink, which makes the whole grid track refuse to get narrower.
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.maxWidth = '100%';
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -154,7 +158,7 @@ function HoloGlobe({ pins, reducedMotion }: { pins: GlobePin[]; reducedMotion: b
     );
   }
 
-  return <div ref={mountRef} className="h-full w-full" aria-label="Device location globe" role="img" />;
+  return <div ref={mountRef} className="h-full w-full min-w-0 overflow-hidden" aria-label="Device location globe" role="img" />;
 }
 
 export default HoloGlobe;

@@ -6,21 +6,37 @@ import {
   BellRing,
   CheckCircle2,
   Cpu,
-  Images,
+  Laptop,
   MonitorSmartphone,
   Radar,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Smartphone,
   Wifi,
   WifiOff
 } from 'lucide-react';
 import { fetchNotificationSettings } from '../../api';
 import HoloGlobe, { GlobePin } from '../../components/globe/HoloGlobe';
+import Gauge from '../../components/hud/Gauge';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { getExperienceSettings } from '../../lib/experience';
 import { formatRelativeTime, severityStyles } from './format';
 import type { DashboardContext } from './context';
+
+const HOURS = 12;
+
+/** Bucket timestamps into the last N hours so charts reflect real history. */
+function seriesFrom(times: number[], nowMs: number, hours = HOURS): number[] {
+  const buckets = new Array<number>(hours).fill(0);
+  const start = nowMs - hours * 3600_000;
+  for (const time of times) {
+    if (Number.isNaN(time) || time < start || time > nowMs) continue;
+    const index = Math.min(hours - 1, Math.floor((time - start) / 3600_000));
+    buckets[index] += 1;
+  }
+  return buckets;
+}
 
 function OverviewPage() {
   const { token, devices, incidents, captures, loading, error, reload } = useOutletContext<DashboardContext>();
@@ -45,6 +61,27 @@ function OverviewPage() {
   const latestSync = devices.length
     ? Math.max(...devices.map((device) => new Date(device.lastSeen).getTime()))
     : 0;
+  const incidentsLast24h = incidents.filter((incident) => now - new Date(incident.createdAt).getTime() < 86_400_000).length;
+
+  const incidentSeries = useMemo(
+    () => seriesFrom(incidents.map((incident) => new Date(incident.createdAt).getTime()), now),
+    [incidents, now]
+  );
+  const checkInSeries = useMemo(
+    () => seriesFrom(devices.map((device) => new Date(device.lastSeen).getTime()), now),
+    [devices, now]
+  );
+
+  const postureChecks = [
+    devices.length > 0,
+    devices.length > 0 && online.length === devices.length,
+    devices.length > 0 && latestSync > 0 && now - latestSync < 24 * 3600_000,
+    alertConfigured === true,
+    !devices.some((device) => device.isLost)
+  ];
+  const posture = Math.round((postureChecks.filter(Boolean).length / postureChecks.length) * 100);
+  const postureTone = posture >= 80 ? 'green' : posture >= 50 ? 'cyan' : 'danger';
+  const postureLabel = posture >= 80 ? 'Optimal' : posture >= 50 ? 'Partial' : 'Action needed';
 
   const pins = useMemo<GlobePin[]>(() => {
     const byDevice = new Map<string, GlobePin>();
@@ -86,8 +123,12 @@ function OverviewPage() {
     return events.sort((a, b) => b.at - a.at).slice(0, 7);
   }, [incidents, captures]);
 
+  const featured = devices[0];
+  const featuredOnline = featured ? now - new Date(featured.lastSeen).getTime() < 10 * 60 * 1000 : false;
+  const featuredLost = Boolean(featured?.isLost);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="hud-label">Command center</p>
@@ -110,10 +151,31 @@ function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Total devices" value={devices.length} icon={MonitorSmartphone} tone="green" hint={`${online.length} transmitting`} />
+        <StatTile
+          label="Total devices"
+          value={devices.length}
+          icon={MonitorSmartphone}
+          tone="green"
+          hint="check-ins · 12h"
+          series={checkInSeries}
+        />
         <StatTile label="Online devices" value={online.length} icon={Wifi} tone="cyan" hint={`${offline} offline`} />
-        <StatTile label="Offline devices" value={offline} icon={WifiOff} tone={offline > 0 ? 'danger' : 'green'} hint={offline > 0 ? 'Needs attention' : 'All reachable'} />
-        <StatTile label="Threats detected" value={incidents.length} icon={AlertTriangle} tone="danger" hint={`${criticalCount} high or critical`} />
+        <StatTile
+          label="Offline devices"
+          value={offline}
+          icon={WifiOff}
+          tone={offline > 0 ? 'danger' : 'green'}
+          hint={offline > 0 ? 'Needs attention' : 'All reachable'}
+        />
+        <StatTile
+          label="Threats detected"
+          value={incidents.length}
+          icon={AlertTriangle}
+          tone="danger"
+          hint={`${criticalCount} critical`}
+          delta={`+${incidentsLast24h} · 24h`}
+          series={incidentSeries}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -171,40 +233,87 @@ function OverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="holo-panel holo-corner p-4 sm:p-5 lg:col-span-2">
+        <section className="holo-panel holo-corner p-4 sm:p-5">
           <PanelTitle
             icon={MonitorSmartphone}
             title="Device agents"
             action={<Link to="/dashboard/devices" className="font-mono text-[10px] uppercase tracking-[0.18em] text-brand-green hover:text-white">Manage all</Link>}
           />
-          {devices.length === 0 ? (
+          {!featured ? (
             <EmptyState icon={Cpu} title="No agents registered" message="Install the Sentinel agent or pair a phone to see it here." />
           ) : (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {devices.slice(0, 4).map((device) => {
+            <div className="mt-3 space-y-3">
+              <Link
+                to={`/dashboard/devices/${encodeURIComponent(featured.deviceId)}`}
+                className="group block border border-white/8 bg-white/[0.02] p-3 transition hover:border-brand-green/40"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex h-10 w-10 items-center justify-center border border-brand-green/25 bg-brand-green/[0.07] text-brand-green">
+                    {/android|phone|mobile/i.test(featured.operatingSystem) ? <Smartphone size={18} /> : <Laptop size={18} />}
+                  </span>
+                  <span className={`flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${featuredOnline ? 'border-brand-green/40 text-brand-green' : 'border-brand-danger/40 text-brand-danger'}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${featuredOnline ? 'bg-brand-green' : 'bg-brand-danger'}`} />
+                    {featuredOnline ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+                <p className="mt-2.5 truncate text-sm font-bold text-white">{featured.name}</p>
+                <p className="truncate text-[11px] text-slate-400">{featured.operatingSystem}</p>
+                <div className="mt-2.5">
+                  <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.12em]">
+                    <span className="text-slate-500">Threat level</span>
+                    <span className={featuredLost ? 'text-brand-danger' : 'text-brand-green'}>{featuredLost ? 'Critical' : 'Low'}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full bg-white/5">
+                    <div
+                      className={`h-full ${featuredLost ? 'bg-brand-danger' : 'bg-brand-green'}`}
+                      style={{ width: featuredLost ? '92%' : '18%', boxShadow: '0 0 8px -1px currentColor' }}
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">
+                  Last seen {formatRelativeTime(new Date(featured.lastSeen).getTime(), now)}
+                </p>
+                <p className="mt-2 flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-brand-green group-hover:text-white">
+                  View details <ArrowRight size={11} />
+                </p>
+              </Link>
+
+              {devices.slice(1, 4).map((device) => {
                 const isOnline = now - new Date(device.lastSeen).getTime() < 10 * 60 * 1000;
                 return (
                   <Link
                     key={device._id ?? device.deviceId}
                     to={`/dashboard/devices/${encodeURIComponent(device.deviceId)}`}
-                    className="group border border-white/8 bg-white/[0.02] p-3 transition hover:border-brand-green/40"
+                    className="flex items-center justify-between gap-2 border-b border-white/5 pb-2 last:border-0 last:pb-0"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-white">{device.name}</span>
-                      <span className={`flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.16em] ${isOnline ? 'text-brand-green' : 'text-brand-danger'}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-brand-green' : 'bg-brand-danger'}`} />
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-[11px] text-slate-400">{device.operatingSystem}</p>
-                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                      Seen {formatRelativeTime(new Date(device.lastSeen).getTime(), now)}
-                    </p>
+                    <span className="truncate text-xs text-slate-300">{device.name}</span>
+                    <span className={`flex shrink-0 items-center gap-1 font-mono text-[9px] uppercase tracking-[0.14em] ${isOnline ? 'text-brand-green' : 'text-brand-danger'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-brand-green' : 'bg-brand-danger'}`} />
+                      {isOnline ? 'Online' : 'Offline'}
+                    </span>
                   </Link>
                 );
               })}
             </div>
           )}
+        </section>
+
+        <section className="holo-panel holo-corner flex flex-col p-4 sm:p-5">
+          <PanelTitle icon={ShieldCheck} title="Security posture" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-3">
+            <Gauge value={posture} label="Posture coverage" caption={postureLabel} tone={postureTone} size={172} />
+            <p className="text-center font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
+              {postureChecks.filter(Boolean).length}/{postureChecks.length} checks passing
+            </p>
+            <button
+              type="button"
+              onClick={reload}
+              className="flex min-h-[38px] items-center gap-2 border border-brand-green/30 bg-brand-green/10 px-4 font-mono text-[10px] uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green hover:text-black"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              Rescan telemetry
+            </button>
+          </div>
         </section>
 
         <section className="holo-panel holo-corner p-4 sm:p-5">
