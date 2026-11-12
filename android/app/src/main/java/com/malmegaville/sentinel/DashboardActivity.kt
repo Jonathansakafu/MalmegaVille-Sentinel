@@ -49,6 +49,13 @@ class DashboardActivity : AppCompatActivity() {
         }
         authToken = token
 
+        // Android 12+ refuses to start the camera-matched foreground service
+        // from the background, so a lost phone's photo can only be taken while
+        // this screen is actually open. Running a check here - the one moment
+        // the app is guaranteed visible - is what makes the photo possible at
+        // all; the periodic job still covers everything else.
+        LostDeviceWorker.runOnce(applicationContext, "phone_check")
+
         setContentView(buildShell())
         showTab(SentinelTab.DASHBOARD)
     }

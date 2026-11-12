@@ -23,6 +23,12 @@ class SentinelApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Record the stack trace of any crash before the process dies - the
+        // app has no crash backend, so this is the only way a "keeps
+        // stopping" report can name the actual exception. Shown under
+        // Settings -> Diagnostics.
+        installCrashRecorder()
+
         // Android 13+ throws a SecurityException from the plain 2-arg
         // registerReceiver() for a targetSdk 34 app unless an export flag is
         // given - ContextCompat.registerReceiver handles that correctly
@@ -46,6 +52,18 @@ class SentinelApplication : Application() {
             )
         } catch (e: Exception) {
             // Best effort - see comment above.
+        }
+    }
+
+    private fun installCrashRecorder() {
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                SentinelDiagnostics.recordCrash(this, throwable)
+            } catch (recordingFailure: Throwable) {
+                // Never let diagnostics recording itself mask the real crash.
+            }
+            previousHandler?.uncaughtException(thread, throwable)
         }
     }
 }

@@ -26,6 +26,43 @@ object SettingsTab {
         container.addView(buildAccountCard(activity))
         container.addView(buildPasswordCard(activity))
         container.addView(buildTrustedUsbCard(activity))
+        container.addView(buildDiagnosticsCard(activity))
+    }
+
+    // The phone can't be inspected over USB while it's out of reach, so the
+    // last crash/background failure it saw is kept on the device and shown
+    // here - this is what turns "it keeps stopping" into the actual exception.
+    private fun buildDiagnosticsCard(activity: DashboardActivity): LinearLayout {
+        val card = Ui.card(activity)
+        card.addView(Ui.sectionTitle(activity, "Diagnostics"))
+        card.addView(Ui.spacer(activity, 4))
+        card.addView(Ui.mutedText(activity, "The last error this phone recorded, if any. Useful when captures stop arriving."))
+        card.addView(Ui.spacer(activity, 10))
+
+        val crash = SentinelDiagnostics.lastCrash(activity)
+        val workerError = SentinelDiagnostics.lastWorkerError(activity)
+        if (crash == null && workerError == null) {
+            card.addView(Ui.bodyText(activity, "No errors recorded."))
+            return card
+        }
+        crash?.let { card.addView(diagnosticEntry(activity, "App crash", it)) }
+        if (crash != null && workerError != null) card.addView(Ui.spacer(activity, 10))
+        workerError?.let { card.addView(diagnosticEntry(activity, "Background check", it)) }
+        return card
+    }
+
+    private fun diagnosticEntry(activity: DashboardActivity, label: String, entry: SentinelDiagnostics.Entry): LinearLayout {
+        val block = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val time = runCatching {
+            java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault())
+                .format(java.util.Date(entry.atMillis))
+        }.getOrDefault("")
+        block.addView(Ui.bodyText(activity, "$label · $time"))
+        block.addView(Ui.spacer(activity, 4))
+        block.addView(
+            Ui.mutedText(activity, entry.text.lineSequence().take(8).joinToString("\n"))
+        )
+        return block
     }
 
     private fun buildNotificationCard(activity: DashboardActivity): LinearLayout {

@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SEND_SMS" />
@@ -41,6 +42,17 @@
         </activity>
 
         <activity android:name=".DashboardActivity" android:exported="false" />
+
+        <!-- WorkManager runs the temporary foreground service that lets the
+             background check use the camera. Android 14 refuses
+             startForeground() for a service type the merged manifest doesn't
+             declare, and WorkManager's own declaration carries no type - so
+             without this merge, every attempt to take the lost-device photo
+             threw and silently produced nothing. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="camera"
+            tools:node="merge" />
 
         <!-- Reschedules the periodic lost-device check-in after a reboot,
              since WorkManager's own scheduled jobs don't survive one on their

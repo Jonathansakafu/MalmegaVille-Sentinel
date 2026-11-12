@@ -12,6 +12,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Size
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.suspendCancellableCoroutine
 
@@ -55,7 +56,12 @@ object PhoneCameraCapture {
                 }
 
                 try {
-                    imageReader = ImageReader.newInstance(1280, 960, ImageFormat.JPEG, 1).apply {
+                    // 1280x960 is a 4:3 guess that not every sensor offers as
+                    // a JPEG output - ImageReader.newInstance throws for an
+                    // unsupported size, which read as "camera never works" on
+                    // those devices. Ask the camera what it actually supports.
+                    val jpegSize = selectJpegSize(manager, cameraId)
+                    imageReader = ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 1).apply {
                         setOnImageAvailableListener({ reader ->
                             val image: Image? = reader.acquireLatestImage()
                             val bytes = try {
@@ -126,5 +132,22 @@ object PhoneCameraCapture {
             }
         }
         return ids[0]
+    }
+
+    private fun selectJpegSize(manager: CameraManager, cameraId: String): Size {
+        val sizes = try {
+            manager.getCameraCharacteristics(cameraId)
+                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?.getOutputSizes(ImageFormat.JPEG)
+                ?.toList()
+                .orEmpty()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        if (sizes.isEmpty()) return Size(1280, 960)
+        // Enough detail to identify a face, small enough that a 15-minute
+        // check-in doesn't burn through mobile data.
+        return sizes.filter { it.width <= 1600 }.maxByOrNull { it.width * it.height }
+            ?: sizes.minByOrNull { it.width * it.height }!!
     }
 }

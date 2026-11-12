@@ -27,6 +27,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -58,7 +59,11 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         // beats taking the whole app down.
         return try {
             doWorkInternal()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Catch Throwable, not just Exception: a missing class or an
+            // out-of-memory error from the camera stack is exactly the kind
+            // of failure that was killing the whole process here.
+            runCatching { SentinelDiagnostics.recordWorkerError(applicationContext, e) }
             Result.success()
         }
     }
@@ -107,7 +112,29 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
             // Android requirement, not a choice) is the only way to get a
             // real camera fix from here.
             runCatching { setForeground(createCaptureForegroundInfo()) }
-            val photoBytes = runCatching { PhoneCameraCapture.captureJpeg(applicationContext) }.getOrNull()
+            // Bounded: Camera2 can simply never call back on some devices
+            // (camera held by another app, OEM quirks), and an unbounded
+            // suspend here would leave this check-in - and the visible
+            // foreground notification - stuck until WorkManager kills the
+            // process. The location upload below must not depend on the
+            // camera ever returning.
+            var photoFailure: Throwable? = null
+            val photoBytes = try {
+                withTimeoutOrNull(CAMERA_TIMEOUT_MILLIS) { PhoneCameraCapture.captureJpeg(applicationContext) }
+            } catch (e: Throwable) {
+                photoFailure = e
+                null
+            }
+            if (photoBytes == null) {
+                runCatching {
+                    SentinelDiagnostics.recordWorkerError(
+                        applicationContext,
+                        photoFailure ?: IllegalStateException(
+                            "Photo capture returned no image within ${CAMERA_TIMEOUT_MILLIS / 1000}s (trigger '$trigger')."
+                        )
+                    )
+                }
+            }
             if (photoBytes != null) {
                 runCatching {
                     withContext(Dispatchers.IO) { api.uploadSelfCapturePhoto(deviceId, trigger, capturedAt, photoBytes) }
@@ -241,6 +268,7 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
         private const val KEY_CACHED_OWNER_PHONE = "cached_owner_phone"
         private const val KEY_LAST_SMS_SENT_AT = "last_lost_device_sms_sent_at"
         private val SMS_THROTTLE_MILLIS = TimeUnit.HOURS.toMillis(1)
+        private const val CAMERA_TIMEOUT_MILLIS = 25_000L
         private const val NOTIFICATION_ID = 4171
         private const val UNIQUE_PERIODIC_NAME = "lost_device_periodic_check"
 
