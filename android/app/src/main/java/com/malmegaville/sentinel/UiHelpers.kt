@@ -86,7 +86,10 @@ object Ui {
         setTextColor(Color.BLACK)
         setTypeface(typeface, Typeface.BOLD)
         background = ContextCompat.getDrawable(context, R.drawable.bg_button_green)
-        setOnClickListener { onClick() }
+        setOnClickListener {
+            SentinelSound.click(context)
+            onClick()
+        }
     }
 
     fun outlineButton(context: Context, label: String, onClick: () -> Unit) = android.widget.Button(context).apply {
@@ -94,7 +97,10 @@ object Ui {
         isAllCaps = false
         setTextColor(color(context, R.color.text_primary))
         background = ContextCompat.getDrawable(context, R.drawable.bg_input)
-        setOnClickListener { onClick() }
+        setOnClickListener {
+            SentinelSound.click(context)
+            onClick()
+        }
     }
 
     fun rowSpaceBetween(context: Context): LinearLayout = LinearLayout(context).apply {

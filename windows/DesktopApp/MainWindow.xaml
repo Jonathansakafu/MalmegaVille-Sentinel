@@ -23,10 +23,11 @@
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="MalmegaVille Sentinel" FontSize="22" FontWeight="Bold" />
                 <TextBlock Text="Endpoint security agent" Style="{StaticResource HintText}" Margin="0,2,0,0" />
+                <TextBlock Text="// PROTECT · DETECT · RESPOND" Foreground="{StaticResource BrandGreenBrush}" FontSize="10" Margin="0,4,0,0" />
             </StackPanel>
         </StackPanel>
 
-        <TabControl Grid.Row="1">
+        <TabControl x:Name="MainTabs" Grid.Row="1">
             <TabItem Header="Dashboard">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">
                     <StackPanel>

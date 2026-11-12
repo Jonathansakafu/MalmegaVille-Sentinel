@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(SentinelPrefs.NAME, Context.MODE_PRIVATE)
         setContentView(buildUi())
 
+        SentinelSound.boot(this)
         requestRuntimePermissions()
         restoreSession()
     }
@@ -141,7 +142,10 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(Color.BLACK)
                 setTypeface(typeface, Typeface.BOLD)
                 background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_button_green)
-                setOnClickListener { signInAndPair() }
+                setOnClickListener {
+                    SentinelSound.click(this@MainActivity)
+                    signInAndPair()
+                }
             },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
                 topMargin = dp(4)
@@ -170,6 +174,13 @@ class MainActivity : AppCompatActivity() {
         setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_hint))
         setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
         background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_input)
+        addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (count != before) SentinelSound.key(this@MainActivity)
+            }
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
     }
 
     private fun formFieldParams(dp: (Int) -> Int) =
@@ -234,7 +245,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        setStatus("Signing in...")
+        setStatus("Authenticating...")
+        SentinelSound.boot(this)
 
         CoroutineScope(Dispatchers.Main).launch {
             try {
@@ -242,8 +254,10 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putString(SentinelPrefs.KEY_AUTH_TOKEN, token).apply()
                 registerDeviceToken(token, silent = true)
                 activateLostDeviceMonitoring(token)
-                goToDashboard()
+                goToDashboard(justAuthenticated = true)
             } catch (e: Exception) {
+                SentinelSound.deny(this@MainActivity)
+                SentinelCinematic.show(this@MainActivity, granted = false)
                 setStatus("Sign-in failed: ${e.message}", StatusTone.ERROR)
             }
         }
@@ -267,8 +281,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun goToDashboard() {
-        startActivity(android.content.Intent(this, DashboardActivity::class.java))
+    private fun goToDashboard(justAuthenticated: Boolean = false) {
+        startActivity(
+            android.content.Intent(this, DashboardActivity::class.java)
+                .putExtra(DashboardActivity.EXTRA_JUST_AUTHENTICATED, justAuthenticated)
+        )
         finish()
     }
 

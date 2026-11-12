@@ -135,7 +135,10 @@ object CapturesTab {
         val imageView = ImageView(activity).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Ui.color(activity, R.color.slate_900))
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                SentinelSound.click(activity)
+                onClick()
+            }
         }
         val id = captureId(photo)
         if (id != null) {
@@ -402,6 +405,7 @@ object CapturesTab {
             textSize = 13f
             setPadding(Ui.dp(activity, 8), Ui.dp(activity, 4), Ui.dp(activity, 8), Ui.dp(activity, 4))
             setOnClickListener {
+                SentinelSound.click(activity)
                 if (id == null) return@setOnClickListener
                 android.app.AlertDialog.Builder(activity)
                     .setMessage("Delete this capture permanently? This cannot be undone.")

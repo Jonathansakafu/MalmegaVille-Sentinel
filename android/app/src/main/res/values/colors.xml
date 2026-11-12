@@ -1,27 +1,28 @@
 <resources>
-    <!-- Matches frontend/tailwind.config.ts's brand palette exactly, so the
-         app looks like the same product as the web dashboard. -->
-    <color name="brand_dark">#050805</color>
-    <color name="brand_panel">#0B0F0B</color>
-    <color name="brand_green">#7ED957</color>
-    <color name="brand_green_dark">#4C9A2A</color>
-    <color name="input_background">#020617</color>
-    <color name="input_border">#334155</color>
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_muted">#94A3B8</color>
-    <color name="text_hint">#64748B</color>
-    <color name="status_error">#FB7185</color>
+    <!-- Hacker command-center palette, matched to the web console:
+         #030605 base, neon green #00FF88, cyan #00D9FF, alarm red #FF1744. -->
+    <color name="brand_dark">#030605</color>
+    <color name="brand_panel">#06110B</color>
+    <color name="brand_green">#00FF88</color>
+    <color name="brand_green_dark">#00A657</color>
+    <color name="brand_cyan">#00D9FF</color>
+    <color name="brand_danger">#FF1744</color>
+    <color name="input_background">#040D08</color>
+    <color name="input_border">#1F5A3C</color>
+    <color name="text_primary">#F2FFF8</color>
+    <color name="text_muted">#8FA99B</color>
+    <color name="text_hint">#4E6158</color>
+    <color name="status_error">#FF1744</color>
 
-    <!-- Tailwind slate/sky/amber/rose shades used by StatCard/StatusBadge/
-         DeviceCard on the web dashboard - kept under the same names so a
-         reviewer can match a color here back to its Tailwind class there. -->
-    <color name="slate_100">#F1F5F9</color>
-    <color name="slate_300">#CBD5E1</color>
-    <color name="slate_800">#1E293B</color>
-    <color name="slate_900">#0F172A</color>
-    <color name="slate_950">#020617</color>
-    <color name="sky_400">#38BDF8</color>
-    <color name="amber_400">#FBBF24</color>
-    <color name="rose_400">#FB7185</color>
-    <color name="rose_500">#F43F5E</color>
+    <!-- Legacy Tailwind shade names kept so existing views keep compiling,
+         remapped onto the neon palette. -->
+    <color name="slate_100">#E7F5EC</color>
+    <color name="slate_300">#B8C9C1</color>
+    <color name="slate_800">#0A1A12</color>
+    <color name="slate_900">#06110B</color>
+    <color name="slate_950">#030605</color>
+    <color name="sky_400">#00D9FF</color>
+    <color name="amber_400">#FFC24B</color>
+    <color name="rose_400">#FF1744</color>
+    <color name="rose_500">#FF1744</color>
 </resources>

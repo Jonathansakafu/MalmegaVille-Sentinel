@@ -152,7 +152,7 @@ function LiveTracker({
         className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
           tracking
             ? 'border-rose-500/60 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
-            : 'border-slate-700 bg-slate-900 text-brand-green hover:border-brand-green'
+            : 'border-white/10 bg-white/[0.03] text-brand-green hover:border-brand-green'
         }`}
       >
         <Navigation size={14} className={tracking ? 'animate-pulse' : ''} />
@@ -200,7 +200,7 @@ function LocationSummary({ location, token }: { location: Capture; token: string
         {lat.toFixed(5)}, {lon.toFixed(5)}
         {meta.source ? ` · ${String(meta.source) === 'wifi' ? 'Wi-Fi positioning' : 'Approximate (IP-based)'}` : ''}
       </p>
-      <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800">
+      <div className="mt-3 overflow-hidden border border-white/10">
         <RouteMap
           targetLat={lat}
           targetLon={lon}
@@ -218,10 +218,10 @@ function LocationSummary({ location, token }: { location: Capture; token: string
               key={index}
               onClick={() => setSelectedRouteIndex(index)}
               type="button"
-              className={`flex w-full items-center justify-between rounded-2xl border px-4 py-2.5 text-sm transition ${
+              className={`flex w-full items-center justify-between border px-4 py-2.5 text-sm transition ${
                 index === selectedRouteIndex
                   ? 'border-brand-green bg-brand-green/10 text-brand-green'
-                  : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                  : 'border-white/10 bg-white/[0.02] text-slate-300 hover:border-brand-green/40'
               }`}
             >
               <span>Route {index + 1}</span>
@@ -305,7 +305,7 @@ function CaptureDetailModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-800 bg-brand-panel p-5 shadow-2xl"
+        className="holo-panel holo-corner max-h-[90vh] w-full max-w-lg overflow-y-auto p-5"
       >
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-white">Capture details</h3>
@@ -327,7 +327,7 @@ function CaptureDetailModal({
         </div>
 
         {imageUrl ? (
-          <img src={imageUrl} alt="Captured" className="mt-4 w-full rounded-2xl border border-slate-800 object-cover" />
+          <img src={imageUrl} alt="Captured" className="mt-4 w-full border border-white/10 object-cover" />
         ) : null}
 
         <dl className="mt-4 space-y-2 text-sm">
@@ -347,7 +347,7 @@ function CaptureDetailModal({
           ) : null}
         </dl>
 
-        <div className="mt-4 border-t border-slate-800 pt-4">
+        <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-300">
             <MapPin size={14} className="text-brand-green" />
             Location at time of capture
@@ -369,14 +369,16 @@ function CapturesSection({
   token,
   deviceFilter,
   onDeviceFilterChange,
-  onCaptureDeleted
+  onCaptureDeleted,
+  hideDeviceFilter = false
 }: {
   captures: Capture[];
   devices: Device[];
   token: string;
   deviceFilter?: string;
-  onDeviceFilterChange: (deviceId: string | undefined) => void;
+  onDeviceFilterChange?: (deviceId: string | undefined) => void;
   onCaptureDeleted: (id: string) => void;
+  hideDeviceFilter?: boolean;
 }) {
   const [selected, setSelected] = useState<Capture | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
@@ -407,27 +409,31 @@ function CapturesSection({
 
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+      <div className="holo-panel holo-corner p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <h2 className="text-xl font-semibold">Captures</h2>
-          <select
-            value={deviceFilter ?? ''}
-            onChange={(event) => onDeviceFilterChange(event.target.value || undefined)}
-            className="min-h-[44px] w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 sm:w-auto"
-          >
-            <option value="">All devices</option>
-            {devices.map((device) => (
-              <option key={device._id ?? device.deviceId} value={device.deviceId}>
-                {device.name}
-              </option>
-            ))}
-          </select>
+          <h2 className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-slate-100">Evidence records</h2>
+          {hideDeviceFilter ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">{captures.length} records</span>
+          ) : (
+            <select
+              value={deviceFilter ?? ''}
+              onChange={(event) => onDeviceFilterChange?.(event.target.value || undefined)}
+              className="min-h-[44px] w-full border border-brand-green/20 bg-black/50 px-4 py-2.5 font-mono text-xs text-slate-100 sm:w-auto"
+            >
+              <option value="">All devices</option>
+              {devices.map((device) => (
+                <option key={device._id ?? device.deviceId} value={device.deviceId}>
+                  {device.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        {captures.length === 0 ? <p className="mt-4 text-slate-400">No captures recorded yet.</p> : null}
+        {captures.length === 0 ? <p className="mt-4 text-sm text-slate-400">No captures recorded yet.</p> : null}
       </div>
 
       {photos.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+        <div className="holo-panel holo-corner p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Camera size={18} className="text-brand-green" />
             Photos
@@ -442,7 +448,7 @@ function CapturesSection({
       ) : null}
 
       {locations.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+        <div className="holo-panel holo-corner p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <MapPin size={18} className="text-brand-green" />
             Locations
@@ -453,7 +459,7 @@ function CapturesSection({
                 key={location._id ?? location.id}
                 type="button"
                 onClick={() => setSelected(location)}
-                className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-left text-sm text-slate-300 transition hover:border-brand-green"
+                className="border border-white/8 bg-white/[0.02] p-4 text-left text-sm text-slate-300 transition hover:border-brand-green"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-slate-400">{new Date(location.capturedAtUtc).toLocaleString()}</span>
@@ -467,7 +473,7 @@ function CapturesSection({
       ) : null}
 
       {files.length > 0 ? (
-        <div className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+        <div className="holo-panel holo-corner p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <FileArchive size={18} className="text-brand-green" />
             USB Files
@@ -476,8 +482,8 @@ function CapturesSection({
 
           <div className="mt-4 space-y-5">
             {groupFilesBySession(files).map((group) => (
-              <div key={group.sessionId} className="rounded-2xl border border-slate-800 p-3 sm:p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div key={group.sessionId} className="border border-white/10 p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                   <span className="text-sm font-semibold text-slate-200">{new Date(group.capturedAtUtc).toLocaleString()}</span>
                   <span className="text-xs text-slate-500">
                     {group.files.length} file{group.files.length === 1 ? '' : 's'} · {group.deviceId}
@@ -487,7 +493,7 @@ function CapturesSection({
                 {/* Card layout below sm - a horizontally-scrolling table is a poor touch-UX pattern on phones. */}
                 <div className="mt-3 space-y-3 sm:hidden">
                   {group.files.map((file) => (
-                    <div key={file._id ?? file.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm">
+                    <div key={file._id ?? file.id} className="border border-white/8 bg-white/[0.02] p-3 text-sm">
                       <p className="break-all font-semibold text-slate-100">{file.originalFileName ?? 'Unknown'}</p>
                       {file.originalPath ? <p className="mt-1 break-all text-xs text-slate-400">{file.originalPath}</p> : null}
                       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -522,7 +528,7 @@ function CapturesSection({
                     </thead>
                     <tbody>
                       {group.files.map((file) => (
-                        <tr key={file._id ?? file.id} className="border-t border-slate-800">
+                        <tr key={file._id ?? file.id} className="border-t border-white/10">
                           <td className="py-2 pr-4">{file.originalFileName ?? 'Unknown'}</td>
                           <td className="py-2 pr-4 text-slate-400">{file.originalPath ?? '—'}</td>
                           <td className="py-2 pr-4">{file.sizeBytes ? `${(file.sizeBytes / 1024).toFixed(1)} KB` : '—'}</td>
@@ -589,7 +595,7 @@ function CapturePhoto({ capture, token, onSelect }: { capture: Capture; token: s
     <button
       type="button"
       onClick={onSelect}
-      className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 text-left transition hover:border-brand-green"
+      className="overflow-hidden border border-white/8 bg-white/[0.02] text-left transition hover:border-brand-green"
     >
       {url ? (
         <img src={url} alt="Captured" className="aspect-square w-full object-cover" />

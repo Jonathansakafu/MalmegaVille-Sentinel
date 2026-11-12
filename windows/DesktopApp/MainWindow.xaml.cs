@@ -48,6 +48,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         InitializeTrayIcon();
 
+        Loaded += (_, _) => SentinelSound.Boot();
+        AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler((_, _) => SentinelSound.Click()));
+        PreviewKeyDown += (_, _) => SentinelSound.Key();
+        MainTabs.SelectionChanged += (_, _) =>
+        {
+            if (IsLoaded)
+            {
+                SentinelSound.Nav();
+            }
+        };
+
         var basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "MalmegaVille Sentinel");
         _queueFilePath = Path.Combine(basePath, "eventQueue.dat");
         _syncTriggerPath = Path.Combine(basePath, "requestSync.json");
@@ -232,6 +243,7 @@ public partial class MainWindow : Window
             if (showFeedback)
             {
                 DeviceStatusText.Text = $"Registered as \"{Environment.MachineName}\". It'll now show up in Device Inventory on the dashboard.";
+                SentinelSound.Grant();
             }
         }
         catch (UnauthorizedApiException)
@@ -243,6 +255,7 @@ public partial class MainWindow : Window
             if (showFeedback)
             {
                 DeviceStatusText.Text = "Your session was invalid, so you've been signed out. Please sign in again and retry.";
+                SentinelSound.Deny();
             }
         }
         catch (Exception ex)
@@ -252,6 +265,7 @@ public partial class MainWindow : Window
             if (showFeedback)
             {
                 DeviceStatusText.Text = $"Registration failed: {ex.Message}";
+                SentinelSound.Deny();
             }
         }
         finally
@@ -366,9 +380,11 @@ public partial class MainWindow : Window
             var payload = JsonSerializer.Serialize(new { requestedAt = DateTime.UtcNow });
             File.WriteAllText(_syncTriggerPath, payload);
             QueueStatusText.Text = "Sync request created. Service will process it when active.";
+            SentinelSound.Grant();
         }
         catch (Exception ex)
         {
+            SentinelSound.Deny();
             MessageBox.Show(this, $"Failed to request sync: {ex.Message}", "Sync Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -510,9 +526,11 @@ public partial class MainWindow : Window
             var saved = await _apiClient.SaveNotificationSettingsAsync(_authToken, settings);
             _lastKnownPhoneNumber = saved.AlertPhoneNumber;
             SettingsStatusText.Text = "Settings saved.";
+            SentinelSound.Grant();
         }
         catch (Exception ex)
         {
+            SentinelSound.Deny();
             SettingsStatusText.Text = $"Failed to save settings: {ex.Message}";
         }
         finally
@@ -537,9 +555,11 @@ public partial class MainWindow : Window
         {
             var result = await _apiClient.SendTestAlertAsync(_authToken);
             SettingsStatusText.Text = FormatTestResult(result);
+            SentinelSound.Alert();
         }
         catch (Exception ex)
         {
+            SentinelSound.Deny();
             SettingsStatusText.Text = $"Failed to send test alert: {ex.Message}";
         }
         finally

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, Shield, X } from 'lucide-react';
 
 const LINKS = [
   { to: '/', label: 'Home' },
@@ -14,20 +14,22 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const navigate = useNavigate();
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `rounded-full px-4 py-2 text-sm font-semibold transition ${
-      isActive ? 'bg-brand-green text-black' : 'text-slate-300 hover:text-brand-green'
+    `border-b-2 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] transition ${
+      isActive ? 'border-brand-green text-brand-green' : 'border-transparent text-slate-400 hover:border-brand-green/40 hover:text-slate-100'
     }`;
 
   return (
-    <header className="rounded-3xl bg-brand-panel p-4 shadow-xl shadow-black/40 sm:p-5">
-      <div className="flex items-center justify-between gap-4">
+    <header className="relative border-b border-brand-green/20 bg-ink-900/70 backdrop-blur">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <Link to="/" className="flex min-w-0 items-center gap-3" onClick={() => setMenuOpen(false)}>
-          <img
-            src="/logo.jpeg"
-            alt="MalmegaVille Sentinel"
-            className="h-10 w-10 flex-shrink-0 rounded-xl object-contain sm:h-12 sm:w-12"
-          />
-          <span className="truncate text-base font-bold text-white sm:text-lg">MalmegaVille Sentinel</span>
+          <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center border border-brand-green/50 bg-brand-green/10 text-brand-green">
+            <Shield size={20} />
+            <span className="absolute inset-0 animate-pulse-ring border border-brand-green/30" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-bold leading-tight text-white sm:text-base">MalmegaVille</span>
+            <span className="block font-mono text-[9px] uppercase tracking-[0.3em] text-brand-green">Sentinel</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -43,25 +45,25 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
             <button
               onClick={() => navigate('/dashboard')}
               type="button"
-              className="min-h-[44px] rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white"
+              className="min-h-[40px] border border-brand-green/50 bg-brand-green/10 px-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green hover:text-black"
             >
-              Go to Dashboard
+              Enter console
             </button>
           ) : (
             <>
               <button
                 onClick={() => navigate('/login')}
                 type="button"
-                className="min-h-[44px] rounded-full border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-brand-green hover:text-brand-green"
+                className="min-h-[40px] border border-white/15 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300 transition hover:border-brand-green hover:text-brand-green"
               >
                 Login
               </button>
               <button
                 onClick={() => navigate('/login?view=register')}
                 type="button"
-                className="min-h-[44px] rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white"
+                className="min-h-[40px] border border-brand-green/50 bg-brand-green/10 px-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green hover:text-black"
               >
-                Get Started
+                Get started
               </button>
             </>
           )}
@@ -71,14 +73,14 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
           onClick={() => setMenuOpen((open) => !open)}
           type="button"
           aria-label="Toggle menu"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-700 text-slate-200 lg:hidden"
+          className="flex h-10 w-10 items-center justify-center border border-brand-green/25 text-brand-green lg:hidden"
         >
-          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          {menuOpen ? <X size={19} /> : <Menu size={19} />}
         </button>
       </div>
 
       {menuOpen ? (
-        <div className="mt-4 space-y-2 border-t border-slate-800 pt-4 lg:hidden">
+        <div className="border-t border-brand-green/15 px-4 py-3 lg:hidden">
           <nav className="flex flex-col gap-1">
             {LINKS.map((link) => (
               <NavLink
@@ -87,8 +89,10 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
                 end={link.to === '/'}
                 onClick={() => setMenuOpen(false)}
                 className={({ isActive }) =>
-                  `min-h-[44px] rounded-2xl px-4 py-2.5 text-sm font-semibold transition flex items-center ${
-                    isActive ? 'bg-brand-green text-black' : 'text-slate-300 hover:bg-slate-900'
+                  `flex min-h-[44px] items-center border-l-2 px-3 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                    isActive
+                      ? 'border-brand-green bg-brand-green/10 text-brand-green'
+                      : 'border-transparent text-slate-400 hover:text-slate-100'
                   }`
                 }
               >
@@ -96,7 +100,7 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
               </NavLink>
             ))}
           </nav>
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="mt-3 flex flex-col gap-2 border-t border-white/5 pt-3">
             {isAuthenticated ? (
               <button
                 onClick={() => {
@@ -104,9 +108,9 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
                   navigate('/dashboard');
                 }}
                 type="button"
-                className="min-h-[44px] rounded-2xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-black"
+                className="min-h-[44px] border border-brand-green/50 bg-brand-green/10 px-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green"
               >
-                Go to Dashboard
+                Enter console
               </button>
             ) : (
               <>
@@ -116,7 +120,7 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
                     navigate('/login');
                   }}
                   type="button"
-                  className="min-h-[44px] rounded-2xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200"
+                  className="min-h-[44px] border border-white/15 px-4 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-200"
                 >
                   Login
                 </button>
@@ -126,9 +130,9 @@ function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
                     navigate('/login?view=register');
                   }}
                   type="button"
-                  className="min-h-[44px] rounded-2xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-black"
+                  className="min-h-[44px] border border-brand-green/50 bg-brand-green/10 px-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green"
                 >
-                  Get Started
+                  Get started
                 </button>
               </>
             )}

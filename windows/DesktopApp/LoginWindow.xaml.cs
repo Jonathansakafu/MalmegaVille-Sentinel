@@ -15,6 +15,9 @@ public partial class LoginWindow : Window
     {
         InitializeComponent();
         _apiClient = apiClient;
+        Loaded += (_, _) => SentinelSound.Boot();
+        AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler((_, _) => SentinelSound.Click()));
+        PreviewKeyDown += (_, _) => SentinelSound.Key();
     }
 
     private async void Login_Click(object sender, RoutedEventArgs e)
@@ -37,11 +40,13 @@ public partial class LoginWindow : Window
             var result = await _apiClient.LoginAsync(email, password);
             AuthToken = result.Token;
             AuthEmail = result.User.Email;
+            SentinelSound.Grant();
             DialogResult = true;
             Close();
         }
         catch (Exception ex)
         {
+            SentinelSound.Deny();
             ErrorText.Text = ex.Message;
         }
         finally

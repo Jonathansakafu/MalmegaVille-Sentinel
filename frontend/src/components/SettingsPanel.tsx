@@ -60,7 +60,7 @@ function AccountSettings({ token, username, onUsernameChange }: { token: string;
   };
 
   return (
-    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+    <section className="holo-panel holo-corner p-4 sm:p-5">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <User size={18} className="text-brand-green" />
         Account
@@ -77,7 +77,7 @@ function AccountSettings({ token, username, onUsernameChange }: { token: string;
             minLength={3}
             maxLength={24}
             pattern="[a-zA-Z0-9_.\-]+"
-            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+            className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
           />
         </label>
 
@@ -85,7 +85,7 @@ function AccountSettings({ token, username, onUsernameChange }: { token: string;
           onClick={handleSave}
           disabled={saving || value === username || value.trim().length < 3}
           type="button"
-          className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+          className="flex min-h-[44px] items-center justify-center gap-2 border border-brand-green/40 bg-brand-green/10 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green/20 disabled:opacity-50"
         >
           <Save size={16} />
           Save Username
@@ -124,7 +124,7 @@ function ChangePassword({ token }: { token: string }) {
   };
 
   return (
-    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+    <section className="holo-panel holo-corner p-4 sm:p-5">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <KeyRound size={18} className="text-brand-green" />
         Change Password
@@ -139,7 +139,7 @@ function ChangePassword({ token }: { token: string }) {
             onChange={(event) => setCurrentPassword(event.target.value)}
             type="password"
             autoComplete="current-password"
-            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+            className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
           />
         </label>
 
@@ -151,7 +151,7 @@ function ChangePassword({ token }: { token: string }) {
             type="password"
             minLength={8}
             autoComplete="new-password"
-            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+            className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
           />
           <span className="mt-1 block text-xs font-normal text-slate-500">At least 8 characters.</span>
         </label>
@@ -163,7 +163,7 @@ function ChangePassword({ token }: { token: string }) {
             onChange={(event) => setConfirmPassword(event.target.value)}
             type="password"
             autoComplete="new-password"
-            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+            className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
           />
           {confirmPassword && confirmPassword !== newPassword ? (
             <span className="mt-1 block text-xs font-normal text-rose-400">Passwords don't match.</span>
@@ -174,7 +174,7 @@ function ChangePassword({ token }: { token: string }) {
           onClick={handleSave}
           disabled={saving || !canSubmit}
           type="button"
-          className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+          className="flex min-h-[44px] items-center justify-center gap-2 border border-brand-green/40 bg-brand-green/10 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green/20 disabled:opacity-50"
         >
           <KeyRound size={16} />
           Update Password
@@ -241,7 +241,7 @@ function KnownUsbDevices({ token }: { token: string }) {
   };
 
   return (
-    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+    <section className="holo-panel holo-corner p-4 sm:p-5">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <Usb size={18} className="text-brand-green" />
         Known USB Devices
@@ -261,7 +261,7 @@ function KnownUsbDevices({ token }: { token: string }) {
               <h3 className="text-sm font-semibold text-slate-300">Recently alerted, not yet trusted</h3>
               <div className="mt-3 space-y-3">
                 {unrecognized.map((event) => (
-                  <div key={event.deviceName} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+                  <div key={event.deviceName} className="border border-brand-green/20 bg-black/50/80 p-4">
                     <p className="break-all text-xs text-slate-500">{event.deviceName}</p>
                     <p className="mt-1 text-sm text-slate-300">{event.description}</p>
                     <p className="mt-1 text-xs text-slate-500">{new Date(event.timestampUtc).toLocaleString()}</p>
@@ -271,13 +271,13 @@ function KnownUsbDevices({ token }: { token: string }) {
                         onChange={(e) => setLabelDrafts((prev) => ({ ...prev, [event.deviceName]: e.target.value }))}
                         placeholder="Name this device (e.g. My SanDisk drive)"
                         type="text"
-                        className="min-h-[44px] flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
+                        className="min-h-[44px] flex-1 border border-brand-green/20 bg-black/50 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
                       />
                       <button
                         onClick={() => handleTrust(event.deviceName, labelDrafts[event.deviceName] ?? '')}
                         disabled={busyIdentifier === event.deviceName}
                         type="button"
-                        className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+                        className="flex min-h-[44px] items-center justify-center gap-2 border border-brand-green/40 bg-brand-green/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green/20 disabled:opacity-50"
                       >
                         <ShieldCheck size={16} />
                         Mark as Known
@@ -298,7 +298,7 @@ function KnownUsbDevices({ token }: { token: string }) {
                 {trusted.map((device) => (
                   <div
                     key={device._id ?? device.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-4"
+                    className="flex items-center justify-between gap-3 border border-brand-green/20 bg-black/50/80 p-4"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-100">{device.label}</p>
@@ -308,7 +308,7 @@ function KnownUsbDevices({ token }: { token: string }) {
                       onClick={() => handleRemove(device)}
                       disabled={busyIdentifier === device.identifier}
                       type="button"
-                      className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 px-3 py-2 text-sm font-semibold text-rose-300 transition hover:border-rose-500 disabled:opacity-50"
+                      className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-white/10 px-3 py-2 text-sm font-semibold text-rose-300 transition hover:border-rose-500 disabled:opacity-50"
                     >
                       <Trash2 size={14} />
                       Remove
@@ -330,14 +330,14 @@ function KnownUsbDevices({ token }: { token: string }) {
                 onChange={(e) => setManualLabel(e.target.value)}
                 placeholder="Name"
                 type="text"
-                className="min-h-[44px] flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
+                className="min-h-[44px] flex-1 border border-brand-green/20 bg-black/50 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
               />
               <input
                 value={manualIdentifier}
                 onChange={(e) => setManualIdentifier(e.target.value)}
                 placeholder="Device identifier"
                 type="text"
-                className="min-h-[44px] flex-[2] rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
+                className="min-h-[44px] flex-[2] border border-brand-green/20 bg-black/50 px-4 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-green"
               />
               <button
                 onClick={async () => {
@@ -348,7 +348,7 @@ function KnownUsbDevices({ token }: { token: string }) {
                 }}
                 disabled={!manualIdentifier.trim() || !manualLabel.trim()}
                 type="button"
-                className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
               >
                 <Check size={16} />
                 Add
@@ -449,7 +449,7 @@ function PushNotificationSettings({ token }: { token: string }) {
   };
 
   return (
-    <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+    <section className="holo-panel holo-corner p-4 sm:p-5">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <Bell size={18} className="text-brand-green" />
         Push Notifications
@@ -474,7 +474,7 @@ function PushNotificationSettings({ token }: { token: string }) {
             onClick={handleEnable}
             disabled={busy}
             type="button"
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+            className="flex min-h-[44px] items-center justify-center gap-2 border border-brand-green/40 bg-brand-green/10 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green/20 disabled:opacity-50"
           >
             <Bell size={16} />
             Enable Push Notifications
@@ -486,7 +486,7 @@ function PushNotificationSettings({ token }: { token: string }) {
             onClick={handleDisable}
             disabled={busy}
             type="button"
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-rose-500 hover:text-rose-300 disabled:opacity-50"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:border-rose-500 hover:text-rose-300 disabled:opacity-50"
           >
             <BellOff size={16} />
             Disable Push Notifications
@@ -563,7 +563,7 @@ function SettingsPanel({
 
       <PushNotificationSettings token={token} />
 
-      <section className="rounded-3xl bg-brand-panel p-4 shadow-lg shadow-black/30 sm:p-6">
+      <section className="holo-panel holo-corner p-4 sm:p-5">
         <h2 className="flex items-center gap-2 text-xl font-semibold">
           <Mail size={18} className="text-brand-green" />
           Notification Settings
@@ -585,7 +585,7 @@ function SettingsPanel({
                 value={settings.alertEmailRecipient}
                 onChange={(event) => setSettings((prev) => ({ ...prev, alertEmailRecipient: event.target.value }))}
                 type="email"
-                className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+                className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
               />
             </label>
 
@@ -597,7 +597,7 @@ function SettingsPanel({
                 type="tel"
                 placeholder="+15551234567"
                 pattern="^\+[1-9]\d{6,14}$"
-                className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
+                className="mt-2 w-full border border-brand-green/20 bg-black/50 px-4 py-3 text-slate-100 outline-none transition focus:border-brand-green"
               />
               <span className="mt-1 block text-xs font-normal text-slate-500">
                 International format with country code. Used only if a lost/stolen device needs to text you directly
@@ -610,7 +610,7 @@ function SettingsPanel({
                 onClick={handleSave}
                 disabled={saving}
                 type="button"
-                className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-brand-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-white disabled:opacity-50"
+                className="flex min-h-[44px] items-center justify-center gap-2 border border-brand-green/40 bg-brand-green/10 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-green transition hover:bg-brand-green/20 disabled:opacity-50"
               >
                 <Save size={16} />
                 Save Settings
@@ -619,7 +619,7 @@ function SettingsPanel({
                 onClick={handleTest}
                 disabled={testing}
                 type="button"
-                className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:border-brand-green hover:text-brand-green disabled:opacity-50"
               >
                 <Send size={16} />
                 Send Test Alert

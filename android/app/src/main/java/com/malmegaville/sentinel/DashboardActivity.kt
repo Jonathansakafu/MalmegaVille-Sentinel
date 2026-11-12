@@ -31,6 +31,10 @@ enum class SentinelTab { DASHBOARD, CAPTURES, SETTINGS }
 // a client-side router, since there's no deep-linking need here.
 class DashboardActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_JUST_AUTHENTICATED = "just_authenticated"
+    }
+
     val api = SentinelApiClient()
     lateinit var prefs: SharedPreferences
     lateinit var authToken: String
@@ -58,6 +62,13 @@ class DashboardActivity : AppCompatActivity() {
 
         setContentView(buildShell())
         showTab(SentinelTab.DASHBOARD)
+
+        if (intent.getBooleanExtra(EXTRA_JUST_AUTHENTICATED, false)) {
+            SentinelSound.grant(this)
+            SentinelCinematic.show(this, granted = true)
+        } else {
+            SentinelSound.boot(this)
+        }
     }
 
     fun showTab(tab: SentinelTab) {
@@ -143,7 +154,10 @@ class DashboardActivity : AppCompatActivity() {
                     isAllCaps = false
                     textSize = 13f
                     setTypeface(typeface, Typeface.BOLD)
-                    setOnClickListener { showTab(tab) }
+                    setOnClickListener {
+                        SentinelSound.nav(this@DashboardActivity)
+                        showTab(tab)
+                    }
                 }
                 tabRow.addView(
                     button,
@@ -360,8 +374,10 @@ class DashboardActivity : AppCompatActivity() {
                 CoroutineScope(Dispatchers.Main).launch {
                     try {
                         withContext(Dispatchers.IO) { api.setDeviceLostStatus(authToken, deviceMongoId, !isLost) }
+                        if (isLost) SentinelSound.grant(this@DashboardActivity) else SentinelSound.alert(this@DashboardActivity)
                         loadDashboardTab()
                     } catch (e: Exception) {
+                        SentinelSound.deny(this@DashboardActivity)
                         android.widget.Toast.makeText(this@DashboardActivity, "Failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -378,8 +394,10 @@ class DashboardActivity : AppCompatActivity() {
                         CoroutineScope(Dispatchers.Main).launch {
                             try {
                                 withContext(Dispatchers.IO) { api.deleteDevice(authToken, deviceMongoId) }
+                                SentinelSound.grant(this@DashboardActivity)
                                 loadDashboardTab()
                             } catch (e: Exception) {
+                                SentinelSound.deny(this@DashboardActivity)
                                 android.widget.Toast.makeText(this@DashboardActivity, "Failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }

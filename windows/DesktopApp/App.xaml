@@ -5,17 +5,19 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Palette - mirrors the web dashboard's brand tokens (brand-dark/panel/green) -->
-            <SolidColorBrush x:Key="BackgroundBrush" Color="#050805" />
-            <SolidColorBrush x:Key="PanelBrush" Color="#0B0F0B" />
-            <SolidColorBrush x:Key="PanelBorderBrush" Color="#1C261C" />
-            <SolidColorBrush x:Key="InputBrush" Color="#0F150F" />
-            <SolidColorBrush x:Key="InputBorderBrush" Color="#2A332A" />
-            <SolidColorBrush x:Key="BrandGreenBrush" Color="#7ED957" />
-            <SolidColorBrush x:Key="BrandGreenDarkBrush" Color="#4C9A2A" />
-            <SolidColorBrush x:Key="RoseBrush" Color="#FB7185" />
-            <SolidColorBrush x:Key="MutedTextBrush" Color="#94A39A" />
-            <SolidColorBrush x:Key="TextBrush" Color="#F5F7F5" />
+            <!-- Palette - mirrors the web console's hacker tokens
+                 (#030605 base, neon green #00FF88, cyan #00D9FF, alarm #FF1744) -->
+            <SolidColorBrush x:Key="BackgroundBrush" Color="#030605" />
+            <SolidColorBrush x:Key="PanelBrush" Color="#06110B" />
+            <SolidColorBrush x:Key="PanelBorderBrush" Color="#1E4A32" />
+            <SolidColorBrush x:Key="InputBrush" Color="#040D08" />
+            <SolidColorBrush x:Key="InputBorderBrush" Color="#173B28" />
+            <SolidColorBrush x:Key="BrandGreenBrush" Color="#00FF88" />
+            <SolidColorBrush x:Key="BrandGreenDarkBrush" Color="#00A657" />
+            <SolidColorBrush x:Key="CyanBrush" Color="#00D9FF" />
+            <SolidColorBrush x:Key="RoseBrush" Color="#FF1744" />
+            <SolidColorBrush x:Key="MutedTextBrush" Color="#8FA99B" />
+            <SolidColorBrush x:Key="TextBrush" Color="#F2FFF8" />
 
             <!-- Foreground is an inherited property in WPF, so setting it here on Window
                  covers every TextBlock (including ones using an explicit named style like
@@ -23,12 +25,12 @@
                  using the default, style-less TextBlock lookup. -->
             <Style TargetType="Window">
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Segoe UI" />
             </Style>
 
             <Style TargetType="TextBlock">
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Segoe UI" />
             </Style>
 
             <!-- Rounded, filled primary button (brand green) -->
@@ -44,7 +46,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -75,7 +77,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -110,7 +112,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TextBox">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -138,7 +140,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="PasswordBox">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -160,7 +162,7 @@
                 <Setter Property="Background" Value="{StaticResource PanelBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="CornerRadius" Value="6" />
                 <Setter Property="Padding" Value="20" />
             </Style>
 
@@ -193,7 +195,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TabItem">
-                            <Border x:Name="Chrome" Background="{StaticResource InputBrush}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="{TemplateBinding Padding}" Margin="0,0,10,0">
+                            <Border x:Name="Chrome" Background="{StaticResource InputBrush}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}" Margin="0,0,10,0">
                                 <ContentPresenter x:Name="Content" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -229,7 +231,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
-                            <Border x:Name="Chrome" Background="{StaticResource InputBrush}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            <Border x:Name="Chrome" Background="{StaticResource InputBrush}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter />
                             </Border>
                             <ControlTemplate.Triggers>

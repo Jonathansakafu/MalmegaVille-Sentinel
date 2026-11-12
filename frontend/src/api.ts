@@ -261,3 +261,19 @@ export async function unsubscribePush(token: string, endpoint: string): Promise<
     body: JSON.stringify({ endpoint })
   });
 }
+
+export type AuditLogEntry = {
+  _id?: string;
+  action: string;
+  actorType: 'user' | 'agent' | 'system';
+  description: string;
+  targetType?: string;
+  targetId?: string;
+  createdAt: string;
+};
+
+export async function fetchAuditLogs(token: string): Promise<AuditLogEntry[]> {
+  return request('/api/audit-logs', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}

@@ -5,7 +5,17 @@ import AboutPage from './pages/AboutPage';
 import ServicesPage from './pages/ServicesPage';
 import DownloadPage from './pages/DownloadPage';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
+import DashboardLayout from './pages/app/DashboardLayout';
+import OverviewPage from './pages/app/OverviewPage';
+import DevicesPage from './pages/app/DevicesPage';
+import DeviceDetailPage from './pages/app/DeviceDetailPage';
+import ThreatsPage from './pages/app/ThreatsPage';
+import UsbPage from './pages/app/UsbPage';
+import TimelinePage from './pages/app/TimelinePage';
+import EvidencePage from './pages/app/EvidencePage';
+import ReportsPage from './pages/app/ReportsPage';
+import SettingsPage from './pages/app/SettingsPage';
+import UnavailablePage from './pages/app/UnavailablePage';
 
 function App() {
   const navigate = useNavigate();
@@ -17,6 +27,7 @@ function App() {
     localStorage.setItem('token', authToken);
     localStorage.setItem('userEmail', emailAddress);
     localStorage.setItem('username', displayName);
+    sessionStorage.removeItem('sentinel_booted');
     setToken(authToken);
     setUserEmail(emailAddress);
     setUsername(displayName);
@@ -32,6 +43,7 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('username');
+    sessionStorage.removeItem('sentinel_booted');
     setToken(null);
     setUserEmail('');
     setUsername('');
@@ -54,7 +66,7 @@ function App() {
         path="/dashboard"
         element={
           token ? (
-            <DashboardPage
+            <DashboardLayout
               token={token}
               userEmail={userEmail}
               username={username}
@@ -65,7 +77,21 @@ function App() {
             <Navigate to="/login" replace />
           )
         }
-      />
+      >
+        <Route index element={<OverviewPage />} />
+        <Route path="devices" element={<DevicesPage />} />
+        <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
+        <Route path="threats" element={<ThreatsPage />} />
+        <Route path="usb" element={<UsbPage />} />
+        <Route path="timeline" element={<TimelinePage />} />
+        <Route path="evidence" element={<EvidencePage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="file-protection" element={<UnavailablePage moduleKey="file-protection" />} />
+        <Route path="network" element={<UnavailablePage moduleKey="network" />} />
+        <Route path="restore" element={<UnavailablePage moduleKey="restore" />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

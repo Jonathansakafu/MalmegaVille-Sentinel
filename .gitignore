@@ -41,6 +41,9 @@ android/**/build/
 android/app/google-services.json
 !android/app/google-services.json.example
 *.apk
+# The built companion APK is published from the web app's static folder so
+# /downloads/MalmegaVille Sentinel.apk always matches the deployed build.
+!frontend/public/downloads/*.apk
 
 # Logs
 *.log
