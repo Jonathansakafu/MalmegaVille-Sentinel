@@ -87,6 +87,24 @@ router.post('/events', async (req, res) => {
   // unrecognized deviceId has no owner, so its trust check and alert are
   // skipped rather than falling back to some other tenant's settings.
   const owners = await resolveDeviceOwners(events.map((event) => event.deviceId));
+
+  // Without this, a device's lastSeen only ever moves at registration, so the
+  // dashboard can't distinguish "agent is alive and sending" from "agent stopped
+  // weeks ago". Refreshing it on every successful sync is what makes that
+  // visible to the owner from the browser alone.
+  if (!dblessTestMode && owners.size > 0) {
+    try {
+      await Device.updateMany(
+        { deviceId: { $in: [...owners.keys()] } },
+        { $set: { lastSeen: new Date() } }
+      );
+    } catch (error) {
+      // Liveness is a side effect of this request, not its purpose - a failure
+      // here must never cost the incident that just arrived.
+      console.error('Failed to refresh device lastSeen', error);
+    }
+  }
+
   const eventsWithOwners = events.map((event) => ({ ...event, userId: owners.get(event.deviceId) }));
 
   // A USB-connect event for a drive on the owning account's trusted list is
@@ -173,7 +191,22 @@ router.get('/lost-status', async (req, res) => {
     return res.json({ deviceId, isLost: device?.isLost ?? false, phoneNumber: settings.alertPhoneNumber ?? null });
   }
 
+  // Polled every ~15s by the Windows Core Service (and every 15 minutes by the
+  // Android app), so refreshing lastSeen here is the most reliable "the agent is
+  // still alive" signal the dashboard can show - independent of whether any
+  // capture has succeeded.
   const device = await Device.findOne({ deviceId });
+  if (device) {
+    try {
+      // updateOne, not document.save(): save() runs full schema validation, so
+      // a device doc written by an older schema version could start rejecting
+      // every poll - taking the capture gate down with it. This is a liveness
+      // signal, never worth that risk.
+      await Device.updateOne({ _id: device._id }, { $set: { lastSeen: new Date() } });
+    } catch (error) {
+      console.error('Failed to refresh device lastSeen', error);
+    }
+  }
   const settings = device ? await getEffectiveNotificationSettings(String(device.userId)) : {};
   res.json({ deviceId, isLost: device?.isLost ?? false, phoneNumber: settings.alertPhoneNumber ?? null });
 });
