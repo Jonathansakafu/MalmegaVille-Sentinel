@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
@@ -35,7 +36,12 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _usbPollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private HashSet<string> _lastRemovableDrives = new();
-    private bool _captureInProgress;
+    private int _captureInProgress;
+
+    // Camera warm-up alone can take ~1.5s, and the uploads have a 15s HTTP
+    // timeout each - so this is deliberately generous, but still bounds the
+    // whole sequence rather than trusting every awaited call to return.
+    private static readonly TimeSpan CaptureTimeout = TimeSpan.FromSeconds(45);
 
     public MainWindow()
     {
@@ -61,6 +67,7 @@ public partial class MainWindow : Window
         // app's own startup covers that moment instead - and since the
         // Startup shortcut is all-users, this fires for any account that
         // signs in, including one a thief creates.
+        CaptureLog.Write("tray app started");
         _ = TryCaptureAsync("sign_in");
     }
 
@@ -110,59 +117,94 @@ public partial class MainWindow : Window
     {
         // Guards against the unlock and USB-poll triggers overlapping (or the USB poll
         // firing again mid-capture) and opening the camera device twice concurrently.
-        if (_captureInProgress)
+        //
+        // This used to be a plain bool set/reset in try/finally, which had one permanent
+        // failure mode: a camera call that never returns (stuck driver, device held by
+        // another app) left the flag set forever, so every later unlock/sign-in/USB
+        // trigger returned immediately - captures stopped silently until the tray app
+        // was restarted. A bounded wait guarantees the guard is released even then.
+        if (Interlocked.Exchange(ref _captureInProgress, 1) == 1)
         {
+            CaptureLog.Write($"{triggerEvent}: skipped, another capture is still running");
             return;
         }
-        _captureInProgress = true;
 
         try
         {
-            var deviceId = DeviceIdentity.GetOrCreateDeviceId();
-
-            bool isLost;
-            try
+            var captureTask = CaptureCoreAsync(triggerEvent);
+            var completed = await Task.WhenAny(captureTask, Task.Delay(CaptureTimeout));
+            if (completed != captureTask)
             {
-                isLost = await _apiClient.CheckLostStatusAsync(deviceId);
-            }
-            catch
-            {
+                CaptureLog.Write($"{triggerEvent}: capture exceeded {CaptureTimeout.TotalSeconds:0}s, abandoning it");
                 return;
             }
 
-            if (!isLost)
-            {
-                return;
-            }
-
-            var capturedAt = DateTime.UtcNow;
-
-            var jpeg = await Task.Run(WebcamCapture.CaptureSingleFrameJpeg);
-            if (jpeg is not null)
-            {
-                try
-                {
-                    await _apiClient.UploadCapturePhotoAsync(deviceId, triggerEvent, capturedAt, jpeg);
-                }
-                catch
-                {
-                    // Best effort - no local retry queue for photos, the next trigger will produce a fresh one.
-                }
-            }
-
-            try
-            {
-                var locationFix = await LocationCapture.TryGetWifiLocationAsync();
-                await _apiClient.UploadCaptureLocationAsync(deviceId, triggerEvent, capturedAt, locationFix);
-            }
-            catch
-            {
-                // Best effort - the backend still has an IP-based fallback path for the next attempt.
-            }
+            await captureTask;
+        }
+        catch (Exception ex)
+        {
+            CaptureLog.Write($"{triggerEvent}: capture threw", ex);
         }
         finally
         {
-            _captureInProgress = false;
+            Interlocked.Exchange(ref _captureInProgress, 0);
+        }
+    }
+
+    private async Task CaptureCoreAsync(string triggerEvent)
+    {
+        var deviceId = DeviceIdentity.GetOrCreateDeviceId();
+
+        bool isLost;
+        try
+        {
+            isLost = await _apiClient.CheckLostStatusAsync(deviceId);
+        }
+        catch (Exception ex)
+        {
+            // Still silent on screen - but a lost-status outage has to be
+            // distinguishable from "device isn't flagged lost" in the log.
+            CaptureLog.Write($"{triggerEvent}: lost-status check failed", ex);
+            return;
+        }
+
+        if (!isLost)
+        {
+            CaptureLog.Write($"{triggerEvent}: device is not flagged lost, capture skipped");
+            return;
+        }
+
+        var capturedAt = DateTime.UtcNow;
+
+        var jpeg = await Task.Run(WebcamCapture.CaptureSingleFrameJpeg);
+        if (jpeg is null)
+        {
+            CaptureLog.Write($"{triggerEvent}: camera returned no frame");
+        }
+        else
+        {
+            try
+            {
+                await _apiClient.UploadCapturePhotoAsync(deviceId, triggerEvent, capturedAt, jpeg);
+                CaptureLog.Write($"{triggerEvent}: photo uploaded ({jpeg.Length} bytes)");
+            }
+            catch (Exception ex)
+            {
+                // Best effort - no local retry queue for photos, the next trigger will produce a fresh one.
+                CaptureLog.Write($"{triggerEvent}: photo upload failed", ex);
+            }
+        }
+
+        try
+        {
+            var locationFix = await LocationCapture.TryGetWifiLocationAsync();
+            await _apiClient.UploadCaptureLocationAsync(deviceId, triggerEvent, capturedAt, locationFix);
+            CaptureLog.Write($"{triggerEvent}: location uploaded ({(locationFix is null ? "backend IP fallback" : "wifi fix")})");
+        }
+        catch (Exception ex)
+        {
+            // Best effort - the backend still has an IP-based fallback path for the next attempt.
+            CaptureLog.Write($"{triggerEvent}: location upload failed", ex);
         }
     }
 
