@@ -37,7 +37,8 @@ reach the paired phone over the internet - the two cover different scenarios.
 3. From Project Settings → Service accounts → Generate new private key, download that
    JSON too - this one goes on the **backend**, as `FIREBASE_SERVICE_ACCOUNT_JSON` (see
    `backend/.env.example`), not into this app.
-4. Build: `./gradlew assembleDebug`. Output: `app/build/outputs/apk/debug/app-debug.apk`.
+4. Build: `./gradlew assembleDebug`. Output:
+   `app/build/outputs/apk/debug/MalmegaVille Sentinel.apk`.
 5. Install it on an Android phone (enable "install from unknown sources" once) and sign
    in.
 

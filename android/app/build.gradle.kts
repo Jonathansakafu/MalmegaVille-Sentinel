@@ -32,6 +32,23 @@ android {
     }
 }
 
+// The artifact keeps the product's name instead of the Gradle module name, so
+// the file is identifiable on a phone or in a share without knowing what
+// "app-debug.apk" is. Debug and release land in separate directories, so the
+// shared name never collides.
+//
+// The public VariantOutput API in AGP 8.5 has no filename property (only
+// versionCode/versionName/enabled), so this casts to the implementation type
+// the plugin instantiates - the standard approach until AGP exposes it.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            (output as com.android.build.api.variant.impl.VariantOutputImpl)
+                .outputFileName.set("MalmegaVille Sentinel.apk")
+        }
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
