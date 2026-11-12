@@ -12,25 +12,44 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,20">
-            <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Margin="0,0,14,0">
-                <Image Source="pack://application:,,,/Assets/logo.jpeg" Width="56" Height="56" Stretch="UniformToFill">
-                    <Image.Clip>
-                        <RectangleGeometry Rect="0,0,56,56" RadiusX="14" RadiusY="14" />
-                    </Image.Clip>
-                </Image>
-            </Border>
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="MalmegaVille Sentinel" FontSize="22" FontWeight="Bold" />
-                <TextBlock Text="Endpoint security agent" Style="{StaticResource HintText}" Margin="0,2,0,0" />
-                <TextBlock Text="// PROTECT · DETECT · RESPOND" Foreground="{StaticResource BrandGreenBrush}" FontSize="10" Margin="0,4,0,0" />
+        <Grid Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Margin="0,0,14,0">
+                    <Image Source="pack://application:,,,/Assets/logo.jpeg" Width="56" Height="56" Stretch="UniformToFill">
+                        <Image.Clip>
+                            <RectangleGeometry Rect="0,0,56,56" RadiusX="14" RadiusY="14" />
+                        </Image.Clip>
+                    </Image>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="MalmegaVille Sentinel" FontSize="22" FontWeight="Bold" />
+                    <TextBlock Text="Endpoint security agent" Style="{StaticResource HintText}" Margin="0,2,0,0" />
+                    <TextBlock Text="// PROTECT · DETECT · RESPOND" Foreground="{StaticResource BrandGreenBrush}" FontSize="10" Margin="0,4,0,0" />
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
+            <Button Grid.Column="1" Content="Open Dashboard" MinWidth="150" VerticalAlignment="Center"
+                    Click="OpenDashboard_Click" Style="{StaticResource PrimaryButton}" />
+        </Grid>
 
         <TabControl x:Name="MainTabs" Grid.Row="1">
             <TabItem Header="Dashboard">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">
                     <StackPanel>
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Operator dashboard" Style="{StaticResource SectionHeading}" />
+                                <TextBlock Text="Device inventory, the threat feed, evidence captures, and lost-device controls live in the web console. This agent only reports on this PC." Style="{StaticResource HintText}" Margin="0,0,0,14" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Open Dashboard" MinWidth="150" Click="OpenDashboard_Click" Style="{StaticResource PrimaryButton}" />
+                                    <TextBlock x:Name="DashboardStatusText" VerticalAlignment="Center" Margin="14,0,0,0" Style="{StaticResource HintText}" MaxWidth="420" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                             <StackPanel>
                                 <TextBlock Text="Sync" Style="{StaticResource SectionHeading}" />

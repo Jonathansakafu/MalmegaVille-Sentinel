@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -301,6 +302,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = new ContextMenuStrip()
         };
 
+        _trayIcon.ContextMenuStrip.Items.Add("Open Dashboard", null, (_, _) => OpenDashboard());
         _trayIcon.ContextMenuStrip.Items.Add("Open", null, (_, _) => ShowWindow());
         _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => ExitApplication());
         _trayIcon.DoubleClick += (_, _) => ShowWindow();
@@ -341,6 +343,52 @@ public partial class MainWindow : Window
         }
 
         return System.Drawing.SystemIcons.Application;
+    }
+
+    private void OpenDashboard_Click(object sender, RoutedEventArgs e)
+    {
+        OpenDashboard();
+    }
+
+    private void OpenDashboard()
+    {
+        var url = ResolveDashboardUrl();
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            DashboardStatusText.Text = $"Opening {url} in your browser.";
+            SentinelSound.Grant();
+        }
+        catch (Exception ex)
+        {
+            DashboardStatusText.Text = "Couldn't open the dashboard.";
+            SentinelSound.Deny();
+            MessageBox.Show(this, $"Couldn't open {url} in your browser: {ex.Message}", "Dashboard", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // The agent only knows the API base (SENTINEL_BACKEND_API_BASE_URL, e.g.
+    // https://host/api); the dashboard is served from that deployment's site
+    // root, so drop the /api segment. SENTINEL_DASHBOARD_URL overrides both
+    // for split deployments.
+    private static string ResolveDashboardUrl()
+    {
+        var explicitUrl = Environment.GetEnvironmentVariable("SENTINEL_DASHBOARD_URL")?.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(explicitUrl))
+        {
+            return explicitUrl;
+        }
+
+        var apiBase = Environment.GetEnvironmentVariable("SENTINEL_BACKEND_API_BASE_URL")?.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(apiBase))
+        {
+            return apiBase.EndsWith("/api", StringComparison.OrdinalIgnoreCase)
+                ? apiBase[..^4]
+                : apiBase;
+        }
+
+        return "https://app-production-fd2d.up.railway.app";
     }
 
     private void ShowWindow()

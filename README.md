@@ -81,6 +81,7 @@ Opens on `http://localhost:5173`, proxying `/api` to the backend on `http://loca
 Both `windows/CoreService` and `windows/DesktopApp` are standard .NET 8 projects (`dotnet build` / `dotnet run`). Key environment variables:
 
 - `SENTINEL_BACKEND_API_BASE_URL` — backend base URL (defaults to `http://localhost:4000/api`)
+- `SENTINEL_DASHBOARD_URL` — optional web dashboard URL for the agent's "Open Dashboard" button; defaults to the site root of `SENTINEL_BACKEND_API_BASE_URL`
 - `SENTINEL_SYNC_TOKEN` — optional shared secret; only needed if the backend has `SYNC_TOKEN` set (off by default in production - see [Deployment](#deployment))
 
 The SMS fallback channel (see [Alerting channels](#alerting-channels) above) needs no PC-side configuration at all — the recipient number comes from the account's Settings, synced to the device automatically. It only takes effect on a PC with a WWAN/eSIM modem and active SIM.

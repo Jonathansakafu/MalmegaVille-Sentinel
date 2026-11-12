@@ -7,7 +7,7 @@ import PublicNav from '../components/PublicNav';
 // file" and blocks the download outright until the user overrides it -
 // wrapping it in a .zip avoids that extra friction.
 const WINDOWS_INSTALLER_URL =
-  'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/windows-agent-v1.0.0/MalmegaVilleSentinelSetup.zip';
+  'https://github.com/Jonathansakafu/MalmegaVille-Sentinel/releases/download/windows-agent-v1.0.1/MalmegaVilleSentinelSetup.zip';
 
 // Served from this site so the link always points at the build that matches
 // the deployed dashboard - the artifact keeps its product name.
