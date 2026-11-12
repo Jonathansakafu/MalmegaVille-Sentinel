@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { fetchNotificationSettings } from '../../api';
 import HoloGlobe, { GlobePin } from '../../components/globe/HoloGlobe';
+import LocationMapModal from '../../components/globe/LocationMapModal';
 import Gauge from '../../components/hud/Gauge';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { getExperienceSettings } from '../../lib/experience';
@@ -42,6 +43,7 @@ function OverviewPage() {
   const { token, devices, incidents, captures, loading, error, reload } = useOutletContext<DashboardContext>();
   const navigate = useNavigate();
   const [alertConfigured, setAlertConfigured] = useState<boolean | null>(null);
+  const [selectedPin, setSelectedPin] = useState<GlobePin | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const experience = useRef(getExperienceSettings());
 
@@ -100,7 +102,9 @@ function OverviewPage() {
         lon,
         label: device?.name ?? capture.deviceId,
         critical: Boolean(device?.isLost),
-        deviceId: capture.deviceId
+        deviceId: capture.deviceId,
+        capturedAtUtc: capture.capturedAtUtc,
+        source: typeof metadata.source === 'string' ? metadata.source : undefined
       });
     }
     return [...byDevice.values()];
@@ -202,9 +206,7 @@ function OverviewPage() {
             <HoloGlobe
               pins={pins}
               reducedMotion={experience.current.reducedMotion}
-              onPinClick={(pin) => {
-                if (pin.deviceId) navigate(`/dashboard/devices/${encodeURIComponent(pin.deviceId)}`);
-              }}
+              onPinClick={setSelectedPin}
             />
             <div className="pointer-events-none absolute bottom-2 left-2 space-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
               <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
@@ -387,6 +389,23 @@ function OverviewPage() {
           <AlertTriangle size={16} className="mt-0.5" />
           {error}
         </div>
+      ) : null}
+
+      {selectedPin ? (
+        <LocationMapModal
+          target={selectedPin}
+          onClose={() => setSelectedPin(null)}
+          onOpenDevice={
+            selectedPin.deviceId
+              ? () => navigate(`/dashboard/devices/${encodeURIComponent(selectedPin.deviceId!)}`)
+              : undefined
+          }
+          onOpenEvidence={
+            selectedPin.deviceId
+              ? () => navigate(`/dashboard/evidence?device=${encodeURIComponent(selectedPin.deviceId!)}&type=location`)
+              : undefined
+          }
+        />
       ) : null}
     </div>
   );

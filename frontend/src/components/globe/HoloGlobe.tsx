@@ -9,6 +9,8 @@ export type GlobePin = {
   label: string;
   critical?: boolean;
   deviceId?: string;
+  capturedAtUtc?: string;
+  source?: string;
 };
 
 type HoloGlobeProps = {
