@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { ArrowRight, Check, Plug, Plus, ShieldCheck, Trash2, Usb } from 'lucide-react';
 import {
   TrustedUsbDevice,
@@ -16,6 +16,7 @@ import type { DashboardContext } from './context';
 
 function UsbPage() {
   const { token, devices, captures } = useOutletContext<DashboardContext>();
+  const navigate = useNavigate();
   const { showAlert } = useAlerts();
   const [trusted, setTrusted] = useState<TrustedUsbDevice[]>([]);
   const [unrecognized, setUnrecognized] = useState<UnrecognizedUsbEvent[]>([]);
@@ -104,10 +105,38 @@ function UsbPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Trusted devices" value={trusted.length} icon={ShieldCheck} tone="green" hint="Silent on insert" />
-        <StatTile label="Unknown drives seen" value={unrecognized.length} icon={Plug} tone={unrecognized.length > 0 ? 'danger' : 'cyan'} hint="Recent alerts" />
-        <StatTile label="USB sessions" value={usbSessions} icon={Usb} tone="cyan" hint="Captured insertions" />
-        <StatTile label="Files captured" value={usbCaptures.length} icon={Usb} tone="amber" hint={`Across ${devices.length} agents`} />
+        <StatTile
+          label="Trusted devices"
+          value={trusted.length}
+          icon={ShieldCheck}
+          tone="green"
+          hint="Silent on insert"
+          onClick={() => document.getElementById('trusted-devices')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+        />
+        <StatTile
+          label="Unknown drives seen"
+          value={unrecognized.length}
+          icon={Plug}
+          tone={unrecognized.length > 0 ? 'danger' : 'cyan'}
+          hint="Recent alerts"
+          onClick={() => document.getElementById('unknown-drives')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+        />
+        <StatTile
+          label="USB sessions"
+          value={usbSessions}
+          icon={Usb}
+          tone="cyan"
+          hint="Captured insertions"
+          onClick={() => navigate('/dashboard/evidence?type=usb')}
+        />
+        <StatTile
+          label="Files captured"
+          value={usbCaptures.length}
+          icon={Usb}
+          tone="amber"
+          hint={`Across ${devices.length} agents`}
+          onClick={() => navigate('/dashboard/evidence?type=usb')}
+        />
       </div>
 
       {error ? (
@@ -115,7 +144,7 @@ function UsbPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section id="unknown-drives" className="holo-panel holo-corner p-4 sm:p-5">
           <PanelTitle
             icon={Plug}
             title="Alerted, not yet trusted"
@@ -160,7 +189,7 @@ function UsbPage() {
           )}
         </section>
 
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section id="trusted-devices" className="holo-panel holo-corner p-4 sm:p-5">
           <PanelTitle
             icon={ShieldCheck}
             title="Trusted devices"

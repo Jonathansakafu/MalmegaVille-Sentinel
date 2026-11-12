@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { Activity, AlertTriangle, Camera, Crosshair, ScrollText, Shield } from 'lucide-react';
 import { AuditLogEntry, fetchAuditLogs } from '../../api';
 import { EmptyState, PanelTitle } from '../../components/shell/AppShell';
@@ -14,6 +14,7 @@ type TimelineEvent = {
   detail: string;
   tone: 'green' | 'cyan' | 'amber' | 'danger';
   meta?: string;
+  to: string;
 };
 
 const FILTERS = ['all', 'incidents', 'evidence', 'system'] as const;
@@ -42,7 +43,8 @@ function TimelinePage() {
         title: incident.summary,
         detail: `${incident.deviceId} · ${incident.incidentType.replace(/_/g, ' ')} · threat score ${incident.threatScore}`,
         tone: ['high', 'critical'].includes(incident.severity.toLowerCase()) ? ('danger' as const) : ('amber' as const),
-        meta: incident.severity
+        meta: incident.severity,
+        to: `/dashboard/threats?device=${encodeURIComponent(incident.deviceId)}`
       })),
       ...captures.map((capture) => ({
         id: `capture-${capture._id ?? capture.id ?? `${capture.deviceId}-${capture.capturedAtUtc}`}`,
@@ -58,7 +60,10 @@ function TimelinePage() {
           capture.triggerEvent ? ` · ${capture.triggerEvent === 'usb_insert' ? 'USB insertion' : 'screen unlock'}` : ''
         }`,
         tone: capture.skipped ? ('cyan' as const) : ('green' as const),
-        meta: capture.captureType.replace(/_/g, ' ')
+        meta: capture.captureType.replace(/_/g, ' '),
+        to: `/dashboard/evidence?device=${encodeURIComponent(capture.deviceId)}&type=${
+          capture.captureType === 'webcam_photo' ? 'webcam_photo' : capture.captureType === 'location' ? 'location' : 'usb'
+        }`
       })),
       ...audit.map((entry) => ({
         id: `audit-${entry._id ?? `${entry.action}-${entry.createdAt}`}`,
@@ -67,7 +72,8 @@ function TimelinePage() {
         title: entry.description,
         detail: `${entry.actorType}${entry.targetType ? ` · ${entry.targetType}` : ''}${entry.targetId ? ` · ${entry.targetId}` : ''}`,
         tone: 'cyan' as const,
-        meta: entry.action
+        meta: entry.action,
+        to: '/dashboard/settings'
       }))
     ];
     return merged.sort((a, b) => b.at - a.at);
@@ -164,7 +170,10 @@ function TimelinePage() {
                     return (
                       <li key={event.id} className="relative">
                         <span className={`absolute -left-[1.42rem] top-3 h-2.5 w-2.5 -translate-x-1/2 rounded-full border bg-ink-900 ${tone}`} />
-                        <div className="border border-white/8 bg-white/[0.02] p-3">
+                        <Link
+                          to={event.to}
+                          className="block border border-white/8 bg-white/[0.02] p-3 transition hover:border-brand-green/35 hover:bg-white/[0.04]"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className={`flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] ${tone.split(' ')[0]}`}>
                               <Icon size={11} /> {event.kind}
@@ -178,7 +187,7 @@ function TimelinePage() {
                             {event.detail}
                             {event.meta ? ` · ${event.meta}` : ''}
                           </p>
-                        </div>
+                        </Link>
                       </li>
                     );
                   })}

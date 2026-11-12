@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowRight,
@@ -40,6 +40,7 @@ function seriesFrom(times: number[], nowMs: number, hours = HOURS): number[] {
 
 function OverviewPage() {
   const { token, devices, incidents, captures, loading, error, reload } = useOutletContext<DashboardContext>();
+  const navigate = useNavigate();
   const [alertConfigured, setAlertConfigured] = useState<boolean | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const experience = useRef(getExperienceSettings());
@@ -98,7 +99,8 @@ function OverviewPage() {
         lat,
         lon,
         label: device?.name ?? capture.deviceId,
-        critical: Boolean(device?.isLost)
+        critical: Boolean(device?.isLost),
+        deviceId: capture.deviceId
       });
     }
     return [...byDevice.values()];
@@ -158,14 +160,23 @@ function OverviewPage() {
           tone="green"
           hint="check-ins · 12h"
           series={checkInSeries}
+          onClick={() => navigate('/dashboard/devices')}
         />
-        <StatTile label="Online devices" value={online.length} icon={Wifi} tone="cyan" hint={`${offline} offline`} />
+        <StatTile
+          label="Online devices"
+          value={online.length}
+          icon={Wifi}
+          tone="cyan"
+          hint={`${offline} offline`}
+          onClick={() => navigate('/dashboard/devices')}
+        />
         <StatTile
           label="Offline devices"
           value={offline}
           icon={WifiOff}
           tone={offline > 0 ? 'danger' : 'green'}
           hint={offline > 0 ? 'Needs attention' : 'All reachable'}
+          onClick={() => navigate('/dashboard/devices')}
         />
         <StatTile
           label="Threats detected"
@@ -175,6 +186,7 @@ function OverviewPage() {
           hint={`${criticalCount} critical`}
           delta={`+${incidentsLast24h} · 24h`}
           series={incidentSeries}
+          onClick={() => navigate('/dashboard/threats')}
         />
       </div>
 
@@ -187,7 +199,13 @@ function OverviewPage() {
           />
           <div className="relative mt-2 h-[300px] sm:h-[360px]">
             <div className="pointer-events-none absolute inset-0 grid-fade" />
-            <HoloGlobe pins={pins} reducedMotion={experience.current.reducedMotion} />
+            <HoloGlobe
+              pins={pins}
+              reducedMotion={experience.current.reducedMotion}
+              onPinClick={(pin) => {
+                if (pin.deviceId) navigate(`/dashboard/devices/${encodeURIComponent(pin.deviceId)}`);
+              }}
+            />
             <div className="pointer-events-none absolute bottom-2 left-2 space-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
               <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
               <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-danger" /> Lost device</p>
@@ -209,8 +227,11 @@ function OverviewPage() {
               {recentIncidents.map((incident) => {
                 const style = severityStyles(incident.severity);
                 return (
-                  <li key={incident._id ?? incident.summary} className="py-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <li key={incident._id ?? incident.summary}>
+                    <Link
+                      to={`/dashboard/threats?device=${encodeURIComponent(incident.deviceId)}`}
+                      className="flex items-start justify-between gap-3 py-3 transition hover:bg-white/[0.02]"
+                    >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-slate-100">{incident.summary}</p>
                         <p className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
@@ -220,7 +241,7 @@ function OverviewPage() {
                       <span className={`shrink-0 border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${style.badge}`}>
                         {incident.severity}
                       </span>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}
@@ -299,7 +320,11 @@ function OverviewPage() {
         </section>
 
         <section className="holo-panel holo-corner flex flex-col p-4 sm:p-5">
-          <PanelTitle icon={ShieldCheck} title="Security posture" />
+          <PanelTitle
+            icon={ShieldCheck}
+            title="Security posture"
+            action={<Link to="/dashboard/reports" className="font-mono text-[10px] uppercase tracking-[0.18em] text-brand-green hover:text-white">Report</Link>}
+          />
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-3">
             <Gauge value={posture} label="Posture coverage" caption={postureLabel} tone={postureTone} size={172} />
             <p className="text-center font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
@@ -319,15 +344,16 @@ function OverviewPage() {
         <section className="holo-panel holo-corner p-4 sm:p-5">
           <PanelTitle icon={ShieldAlert} title="System status" />
           <ul className="mt-3 space-y-2.5 text-sm">
-            <StatusRow label="Core service sync" value={latestSync ? formatRelativeTime(latestSync, now) : 'No data'} ok={Boolean(latestSync)} />
-            <StatusRow label="Agents reachable" value={`${online.length}/${devices.length}`} ok={online.length === devices.length && devices.length > 0} />
-            <StatusRow label="Lost-device protocol" value={devices.some((device) => device.isLost) ? 'Armed' : 'Standby'} ok={!devices.some((device) => device.isLost)} />
+            <StatusRow to="/dashboard/devices" label="Core service sync" value={latestSync ? formatRelativeTime(latestSync, now) : 'No data'} ok={Boolean(latestSync)} />
+            <StatusRow to="/dashboard/devices" label="Agents reachable" value={`${online.length}/${devices.length}`} ok={online.length === devices.length && devices.length > 0} />
+            <StatusRow to="/dashboard/devices" label="Lost-device protocol" value={devices.some((device) => device.isLost) ? 'Armed' : 'Standby'} ok={!devices.some((device) => device.isLost)} />
             <StatusRow
+              to="/dashboard/settings"
               label="Alert channel"
               value={alertConfigured === null ? 'Unknown' : alertConfigured ? 'Configured' : 'Not configured'}
               ok={alertConfigured === true}
             />
-            <StatusRow label="Evidence store" value={`${captures.length} records`} ok={captures.length > 0} />
+            <StatusRow to="/dashboard/evidence" label="Evidence store" value={`${captures.length} records`} ok={captures.length > 0} />
           </ul>
         </section>
       </div>
@@ -366,14 +392,16 @@ function OverviewPage() {
   );
 }
 
-function StatusRow({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+function StatusRow({ label, value, ok, to }: { label: string; value: string; ok: boolean; to: string }) {
   return (
-    <li className="flex items-center justify-between gap-2 border-b border-white/5 pb-2 last:border-0 last:pb-0">
-      <span className="flex items-center gap-2 text-slate-300">
-        {ok ? <CheckCircle2 size={14} className="text-brand-green" /> : <AlertTriangle size={14} className="text-brand-amber" />}
-        {label}
-      </span>
-      <span className={`font-mono text-[11px] uppercase tracking-[0.12em] ${ok ? 'text-brand-green' : 'text-slate-400'}`}>{value}</span>
+    <li className="border-b border-white/5 pb-2 last:border-0 last:pb-0">
+      <Link to={to} className="group flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-slate-300 transition group-hover:text-white">
+          {ok ? <CheckCircle2 size={14} className="text-brand-green" /> : <AlertTriangle size={14} className="text-brand-amber" />}
+          {label}
+        </span>
+        <span className={`font-mono text-[11px] uppercase tracking-[0.12em] ${ok ? 'text-brand-green' : 'text-slate-400'}`}>{value}</span>
+      </Link>
     </li>
   );
 }

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
@@ -27,42 +27,46 @@ import StatusBar from '../components/hud/StatusBar';
 import { useAlerts } from '../components/ui/Alerts';
 import { getExperienceSettings } from '../lib/experience';
 
-const CAPABILITIES: { icon: LucideIcon; title: string; description: string; status: string; code: string }[] = [
+const CAPABILITIES: { icon: LucideIcon; title: string; description: string; status: string; code: string; to: string }[] = [
   {
     icon: Usb,
     title: 'USB & login monitoring',
     description: 'Every removable drive and sign-in on a protected device is recorded and checked against your trusted list.',
     status: 'Active',
-    code: 'MOD-01'
+    code: 'MOD-01',
+    to: '/services#usb-login'
   },
   {
     icon: Camera,
     title: 'Lost-device evidence',
     description: 'Flag a device lost and it silently captures a webcam photo the next time it unlocks or a drive is inserted.',
     status: 'Armed',
-    code: 'MOD-02'
+    code: 'MOD-02',
+    to: '/services#evidence'
   },
   {
     icon: MapPin,
     title: 'Approximate location',
     description: 'Wi-Fi positioning with an IP-based fallback narrows down where a lost device last connected.',
     status: 'Wi-Fi + IP',
-    code: 'MOD-03'
+    code: 'MOD-03',
+    to: '/services#location'
   },
   {
     icon: Mail,
     title: 'Instant alert delivery',
     description: 'Logins, incidents and lost-device captures reach your inbox, phone and relay the moment they happen.',
     status: 'Encrypted',
-    code: 'MOD-04'
+    code: 'MOD-04',
+    to: '/services#alerts'
   }
 ];
 
-const SIGNALS: { icon: LucideIcon; title: string; detail: string; level: string; tone: string }[] = [
-  { icon: Usb, title: 'USB media inserted', detail: 'usb intelligence · agent reported', level: 'Low', tone: 'text-brand-green border-brand-green/40' },
-  { icon: Fingerprint, title: 'Sign-in outside trusted hours', detail: 'login guard · policy match', level: 'High', tone: 'text-brand-amber border-brand-amber/40' },
-  { icon: Camera, title: 'Lost-device unlock', detail: 'evidence protocol · capture queued', level: 'Critical', tone: 'text-brand-danger border-brand-danger/50' },
-  { icon: Wifi, title: 'Location fix resolved', detail: 'geolocation · wifi positioning', level: 'Info', tone: 'text-brand-cyan border-brand-cyan/40' }
+const SIGNALS: { icon: LucideIcon; title: string; detail: string; level: string; tone: string; to: string }[] = [
+  { icon: Usb, title: 'USB media inserted', detail: 'usb intelligence · agent reported', level: 'Low', tone: 'text-brand-green border-brand-green/40', to: '/services#usb-login' },
+  { icon: Fingerprint, title: 'Sign-in outside trusted hours', detail: 'login guard · policy match', level: 'High', tone: 'text-brand-amber border-brand-amber/40', to: '/services#usb-login' },
+  { icon: Camera, title: 'Lost-device unlock', detail: 'evidence protocol · capture queued', level: 'Critical', tone: 'text-brand-danger border-brand-danger/50', to: '/services#evidence' },
+  { icon: Wifi, title: 'Location fix resolved', detail: 'geolocation · wifi positioning', level: 'Info', tone: 'text-brand-cyan border-brand-cyan/40', to: '/services#location' }
 ];
 
 function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -95,6 +99,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
             tone="green"
             filled={8}
             segments={11}
+            to="/services"
           />
           <StatCard
             icon={MonitorSmartphone}
@@ -105,6 +110,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
             tone="cyan"
             filled={3}
             segments={3}
+            to="/download"
           />
           <StatCard
             icon={BellRing}
@@ -115,6 +121,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
             tone="green"
             filled={4}
             segments={4}
+            to="/services#alerts"
           />
           <StatCard
             icon={LockKeyhole}
@@ -124,6 +131,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
             tone="green"
             filled={6}
             segments={6}
+            to="/services#settings"
           />
         </section>
 
@@ -222,14 +230,14 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
 
               <div className="grid grid-cols-3 divide-x divide-white/5 border-t border-brand-green/10">
                 {[
-                  ['Agents', 'Windows · Android'],
-                  ['Transport', 'TLS 1.2+'],
-                  ['Evidence', 'On demand']
-                ].map(([label, value]) => (
-                  <div key={label} className="px-3 py-2.5">
+                  ['Agents', 'Windows · Android', '/download'],
+                  ['Transport', 'TLS 1.2+', '/about'],
+                  ['Evidence', 'On demand', '/services#evidence']
+                ].map(([label, value, to]) => (
+                  <Link key={label} to={to} className="block px-3 py-2.5 transition hover:bg-white/[0.03]">
                     <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-600">{label}</p>
                     <p className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.1em] text-slate-300">{value}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -240,8 +248,12 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
           <div>
             <SectionHeader label="Capability matrix" title="Four modules, one operator console" meta="04 active" icon={ScanLine} />
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {CAPABILITIES.map(({ icon: Icon, title, description, status, code }) => (
-                <article key={title} className="holo-panel holo-corner group p-4 transition hover:-translate-y-0.5 hover:border-brand-green/40">
+              {CAPABILITIES.map(({ icon: Icon, title, description, status, code, to }) => (
+                <Link
+                  key={title}
+                  to={to}
+                  className="holo-panel holo-corner group block p-4 transition hover:-translate-y-0.5 hover:border-brand-green/40"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <span className="flex h-10 w-10 items-center justify-center border border-brand-green/30 bg-brand-green/10 text-brand-green transition group-hover:shadow-neon">
                       <Icon size={18} />
@@ -253,7 +265,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
                   <h3 className="mt-3.5 text-sm font-bold text-white">{title}</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{description}</p>
                   <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">{code}</p>
-                </article>
+                </Link>
               ))}
             </div>
           </div>
@@ -261,15 +273,15 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
           <div className="flex flex-col gap-3">
             <SectionHeader label="Signal taxonomy" title="How the console reads events" meta="Example rows" icon={ShieldAlert} />
             <div className="holo-panel holo-corner divide-y divide-white/5">
-              {SIGNALS.map(({ icon: Icon, title, detail, level, tone }) => (
-                <div key={title} className="flex items-center gap-3 px-4 py-3">
+              {SIGNALS.map(({ icon: Icon, title, detail, level, tone, to }) => (
+                <Link key={title} to={to} className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.03]">
                   <Icon size={17} className="shrink-0 text-slate-400" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-slate-100">{title}</p>
                     <p className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">{detail}</p>
                   </div>
                   <span className={`shrink-0 border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] ${tone}`}>{level}</span>
-                </div>
+                </Link>
               ))}
               <p className="px-4 py-2.5 font-mono text-[9px] uppercase leading-relaxed tracking-[0.12em] text-slate-600">
                 Real event types. Counters stay at zero until your first agent reports.
@@ -299,11 +311,29 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
           <SectionHeader label="Deployment" title="Three steps from download to watch" meta="~5 min" icon={KeyRound} />
           <div className="mt-3 grid gap-3 lg:grid-cols-3">
             {[
-              { step: '01', icon: KeyRound, title: 'Create operator account', copy: 'Register with your email. No card, no gateway account, no installer licence.' },
-              { step: '02', icon: Download, title: 'Install the agent', copy: 'Run the Windows setup as Administrator, or pair the Android companion for SMS relay.' },
-              { step: '03', icon: Crosshair, title: 'Watch the console', copy: 'Devices, incidents, evidence and location land in one command center in real time.' }
-            ].map(({ step, icon: Icon, title, copy }) => (
-              <div key={step} className="holo-panel holo-corner relative overflow-hidden p-5">
+              {
+                step: '01',
+                icon: KeyRound,
+                title: 'Create operator account',
+                copy: 'Register with your email. No card, no gateway account, no installer licence.',
+                to: isAuthenticated ? '/dashboard' : '/login?view=register'
+              },
+              {
+                step: '02',
+                icon: Download,
+                title: 'Install the agent',
+                copy: 'Run the Windows setup as Administrator, or pair the Android companion for SMS relay.',
+                to: '/download'
+              },
+              {
+                step: '03',
+                icon: Crosshair,
+                title: 'Watch the console',
+                copy: 'Devices, incidents, evidence and location land in one command center in real time.',
+                to: isAuthenticated ? '/dashboard' : '/login'
+              }
+            ].map(({ step, icon: Icon, title, copy, to }) => (
+              <Link key={step} to={to} className="holo-panel holo-corner relative block overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-brand-green/40">
                 <span className="pointer-events-none absolute -right-2 -top-5 font-mono text-[4.5rem] font-bold leading-none text-white/[0.04]">{step}</span>
                 <span className="flex h-9 w-9 items-center justify-center border border-brand-green/30 bg-brand-green/10 text-brand-green">
                   <Icon size={16} />
@@ -311,7 +341,10 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
                 <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.24em] text-brand-green/70">Step {step}</p>
                 <h3 className="mt-1 text-sm font-bold text-white">{title}</h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{copy}</p>
-              </div>
+                <span className="mt-3 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.16em] text-brand-green">
+                  Continue <ArrowRight size={10} />
+                </span>
+              </Link>
             ))}
           </div>
         </section>
@@ -371,7 +404,8 @@ function StatCard({
   note,
   tone,
   filled,
-  segments
+  segments,
+  to
 }: {
   icon: LucideIcon;
   label: string;
@@ -381,6 +415,7 @@ function StatCard({
   tone: 'green' | 'cyan';
   filled: number;
   segments: number;
+  to: string;
 }) {
   const tones = {
     green: { icon: 'text-brand-green border-brand-green/25 bg-brand-green/[0.07]', bar: 'bg-brand-green' },
@@ -389,7 +424,7 @@ function StatCard({
   const palette = tones[tone];
 
   return (
-    <div className="holo-panel holo-corner px-3.5 py-3 sm:px-4">
+    <Link to={to} className="holo-panel holo-corner block px-3.5 py-3 transition hover:-translate-y-0.5 hover:border-brand-green/40 sm:px-4">
       <div className="flex items-center justify-between gap-2">
         <p className="truncate font-mono text-[9px] uppercase tracking-[0.16em] text-[#a3d4b4]/70">{label}</p>
         <span className={`flex h-7 w-7 shrink-0 items-center justify-center border ${palette.icon}`}>
@@ -410,7 +445,7 @@ function StatCard({
           />
         ))}
       </div>
-    </div>
+    </Link>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Download, Apple, Clock, ShieldCheck, Smartphone } from 'lucide-react';
 import PublicNav from '../components/PublicNav';
 
@@ -106,7 +107,10 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             </p>
           </div>
 
-          <div className="holo-panel holo-corner p-6 opacity-80 sm:p-8">
+          <Link
+            to="/login?view=register"
+            className="holo-panel holo-corner group block p-6 opacity-80 transition hover:-translate-y-0.5 hover:border-brand-green/40 hover:opacity-100 sm:p-8"
+          >
             <span className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/[0.03] text-slate-500">
               <Apple size={22} />
             </span>
@@ -114,17 +118,16 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             <p className="mt-2 text-sm text-slate-400">
               A native Mac agent is in development. Sign up now and we'll let you know the moment it's ready.
             </p>
-            <button
-              disabled
-              type="button"
-              className="mt-6 flex min-h-[48px] w-full cursor-not-allowed items-center justify-center gap-2 border border-white/10 px-6 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500"
-            >
+            <span className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 border border-white/10 px-6 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 transition group-hover:border-brand-green/40 group-hover:text-brand-green">
               <Clock size={16} />
-              Coming Soon
-            </button>
-          </div>
+              Coming Soon · Notify me
+            </span>
+          </Link>
 
-          <div className="holo-panel holo-corner p-6 opacity-80 sm:p-8">
+          <Link
+            to="/login?view=register"
+            className="holo-panel holo-corner group block p-6 opacity-80 transition hover:-translate-y-0.5 hover:border-brand-green/40 hover:opacity-100 sm:p-8"
+          >
             <span className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/[0.03] text-slate-500">
               <Apple size={22} />
             </span>
@@ -133,15 +136,11 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
               Apple doesn't allow apps to send SMS silently, so the iPhone app will deliver push notification
               alerts instead. Sign up now and we'll let you know the moment it's ready.
             </p>
-            <button
-              disabled
-              type="button"
-              className="mt-6 flex min-h-[48px] w-full cursor-not-allowed items-center justify-center gap-2 border border-white/10 px-6 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500"
-            >
+            <span className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 border border-white/10 px-6 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 transition group-hover:border-brand-green/40 group-hover:text-brand-green">
               <Clock size={16} />
-              Coming Soon
-            </button>
-          </div>
+              Coming Soon · Notify me
+            </span>
+          </Link>
         </section>
       </div>
     </div>

@@ -112,7 +112,7 @@ function AppShell({
           <ShellBrand />
           <SidebarNav counters={counters} />
           <div className="mt-auto">
-            <div className="holo-panel p-3">
+            <NavLink to="/dashboard/devices" className="holo-panel block p-3 transition hover:border-brand-green/40">
               <div className="flex items-center gap-2 text-brand-green">
                 <Shield size={18} />
                 <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]">System protected</span>
@@ -120,7 +120,7 @@ function AppShell({
               <p className="mt-1 text-[11px] text-slate-400">
                 {counters.online}/{counters.devices} agents reachable
               </p>
-            </div>
+            </NavLink>
           </div>
         </aside>
 

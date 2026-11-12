@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { BarChart3, Download, FileJson, FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { useAlerts } from '../../components/ui/Alerts';
@@ -24,6 +24,7 @@ function toCsv(rows: Record<string, unknown>[]): string {
 
 function ReportsPage() {
   const { devices, incidents, captures } = useOutletContext<DashboardContext>();
+  const navigate = useNavigate();
   const { showAlert } = useAlerts();
   const [range, setRange] = useState(7);
 
@@ -180,15 +181,37 @@ function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label={`Incidents · ${range}d`} value={scopedIncidents.length} icon={BarChart3} tone="amber" hint={`${highRisk} high or critical`} />
-        <StatTile label={`Evidence · ${range}d`} value={scopedCaptures.length} icon={FileSpreadsheet} tone="green" hint={`${skipped} skipped`} />
-        <StatTile label="Registered agents" value={devices.length} icon={ShieldCheck} tone="cyan" hint="Current inventory" />
+        <StatTile
+          label={`Incidents · ${range}d`}
+          value={scopedIncidents.length}
+          icon={BarChart3}
+          tone="amber"
+          hint={`${highRisk} high or critical`}
+          onClick={() => navigate('/dashboard/threats')}
+        />
+        <StatTile
+          label={`Evidence · ${range}d`}
+          value={scopedCaptures.length}
+          icon={FileSpreadsheet}
+          tone="green"
+          hint={`${skipped} skipped`}
+          onClick={() => navigate('/dashboard/evidence')}
+        />
+        <StatTile
+          label="Registered agents"
+          value={devices.length}
+          icon={ShieldCheck}
+          tone="cyan"
+          hint="Current inventory"
+          onClick={() => navigate('/dashboard/devices')}
+        />
         <StatTile
           label="Evidence per incident"
           value={scopedIncidents.length === 0 ? '—' : (scopedCaptures.length / scopedIncidents.length).toFixed(1)}
           icon={FileJson}
           tone="cyan"
           hint="Collection density"
+          onClick={() => navigate('/dashboard/evidence')}
         />
       </div>
 
@@ -301,8 +324,15 @@ function ReportsPage() {
               </thead>
               <tbody>
                 {perDevice.map((row) => (
-                  <tr key={row.device._id ?? row.device.deviceId} className="border-t border-white/5">
-                    <td className="py-2 pr-3 text-slate-200">{row.device.name}</td>
+                  <tr key={row.device._id ?? row.device.deviceId} className="border-t border-white/5 transition hover:bg-white/[0.02]">
+                    <td className="py-2 pr-3">
+                      <Link
+                        to={`/dashboard/devices/${encodeURIComponent(row.device.deviceId)}`}
+                        className="text-slate-200 transition hover:text-brand-green"
+                      >
+                        {row.device.name}
+                      </Link>
+                    </td>
                     <td className="py-2 pr-3 text-slate-400">{row.device.operatingSystem}</td>
                     <td className="py-2 pr-3 font-mono text-slate-300">{row.incidents}</td>
                     <td className={`py-2 pr-3 font-mono ${row.highRisk > 0 ? 'text-rose-300' : 'text-slate-400'}`}>{row.highRisk}</td>

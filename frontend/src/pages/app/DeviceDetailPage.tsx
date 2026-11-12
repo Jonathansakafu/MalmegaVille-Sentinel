@@ -122,10 +122,38 @@ function DeviceDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Link status" value={online ? 'Online' : 'Offline'} icon={Cpu} tone={online ? 'green' : 'danger'} hint={`seen ${formatRelativeTime(new Date(device.lastSeen).getTime(), now)}`} />
-        <StatTile label="Incidents" value={deviceIncidents.length} icon={ShieldAlert} tone={deviceIncidents.length > 0 ? 'amber' : 'green'} hint="Reported by this agent" />
-        <StatTile label="Photos" value={counts.photos} icon={Camera} tone="cyan" hint={`${counts.locations} locations`} />
-        <StatTile label="USB captures" value={counts.usb} icon={Usb} tone="cyan" hint="Files and manifests" />
+        <StatTile
+          label="Link status"
+          value={online ? 'Online' : 'Offline'}
+          icon={Cpu}
+          tone={online ? 'green' : 'danger'}
+          hint={`seen ${formatRelativeTime(new Date(device.lastSeen).getTime(), now)}`}
+          onClick={() => navigate('/dashboard/devices')}
+        />
+        <StatTile
+          label="Incidents"
+          value={deviceIncidents.length}
+          icon={ShieldAlert}
+          tone={deviceIncidents.length > 0 ? 'amber' : 'green'}
+          hint="Reported by this agent"
+          onClick={() => navigate(`/dashboard/threats?device=${encodeURIComponent(device.deviceId)}`)}
+        />
+        <StatTile
+          label="Photos"
+          value={counts.photos}
+          icon={Camera}
+          tone="cyan"
+          hint={`${counts.locations} locations`}
+          onClick={() => navigate(`/dashboard/evidence?device=${encodeURIComponent(device.deviceId)}&type=webcam_photo`)}
+        />
+        <StatTile
+          label="USB captures"
+          value={counts.usb}
+          icon={Usb}
+          tone="cyan"
+          hint="Files and manifests"
+          onClick={() => navigate(`/dashboard/evidence?device=${encodeURIComponent(device.deviceId)}&type=usb`)}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">

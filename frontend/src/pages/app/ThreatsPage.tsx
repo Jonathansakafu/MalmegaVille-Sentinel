@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Filter, Search, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { formatRelativeTime, severityStyles } from './format';
@@ -10,8 +10,13 @@ type SeverityFilter = (typeof SEVERITIES)[number];
 
 function ThreatsPage() {
   const { devices, incidents, loading } = useOutletContext<DashboardContext>();
-  const [severity, setSeverity] = useState<SeverityFilter>('all');
-  const [deviceId, setDeviceId] = useState('all');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialSeverity = searchParams.get('severity');
+  const [severity, setSeverity] = useState<SeverityFilter>(
+    SEVERITIES.includes(initialSeverity as SeverityFilter) ? (initialSeverity as SeverityFilter) : 'all'
+  );
+  const [deviceId, setDeviceId] = useState(searchParams.get('device') ?? 'all');
   const [query, setQuery] = useState('');
   const now = Date.now();
 
@@ -49,10 +54,42 @@ function ThreatsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Total incidents" value={incidents.length} icon={AlertTriangle} tone="green" hint="All time" />
-        <StatTile label="High / critical" value={stats.critical} icon={ShieldAlert} tone="danger" hint="Needs review" />
-        <StatTile label="Devices affected" value={stats.affected} icon={ShieldCheck} tone="cyan" hint={`${devices.length} registered`} />
-        <StatTile label="Average threat score" value={stats.avgScore} icon={Filter} tone="amber" hint="Agent-computed" />
+        <StatTile
+          label="Total incidents"
+          value={incidents.length}
+          icon={AlertTriangle}
+          tone="green"
+          hint="All time"
+          onClick={() => {
+            setSeverity('all');
+            setDeviceId('all');
+            setQuery('');
+          }}
+        />
+        <StatTile
+          label="High / critical"
+          value={stats.critical}
+          icon={ShieldAlert}
+          tone="danger"
+          hint="Needs review"
+          onClick={() => navigate('/dashboard/reports')}
+        />
+        <StatTile
+          label="Devices affected"
+          value={stats.affected}
+          icon={ShieldCheck}
+          tone="cyan"
+          hint={`${devices.length} registered`}
+          onClick={() => navigate('/dashboard/devices')}
+        />
+        <StatTile
+          label="Average threat score"
+          value={stats.avgScore}
+          icon={Filter}
+          tone="amber"
+          hint="Agent-computed"
+          onClick={() => navigate('/dashboard/reports')}
+        />
       </div>
 
       <section className="holo-panel holo-corner p-4 sm:p-5">

@@ -56,9 +56,30 @@ function EvidencePage() {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatTile label="Photos" value={counts.photos} icon={Camera} tone="green" hint="Webcam captures" />
-        <StatTile label="Locations" value={counts.locations} icon={MapPin} tone="cyan" hint="Position fixes" />
-        <StatTile label="USB files" value={counts.usb} icon={FileArchive} tone="amber" hint="Copied or skipped" />
+        <StatTile
+          label="Photos"
+          value={counts.photos}
+          icon={Camera}
+          tone="green"
+          hint="Webcam captures"
+          onClick={() => setParam('type', 'webcam_photo')}
+        />
+        <StatTile
+          label="Locations"
+          value={counts.locations}
+          icon={MapPin}
+          tone="cyan"
+          hint="Position fixes"
+          onClick={() => setParam('type', 'location')}
+        />
+        <StatTile
+          label="USB files"
+          value={counts.usb}
+          icon={FileArchive}
+          tone="amber"
+          hint="Copied or skipped"
+          onClick={() => setParam('type', 'usb')}
+        />
       </div>
 
       <section className="holo-panel holo-corner p-4 sm:p-5">

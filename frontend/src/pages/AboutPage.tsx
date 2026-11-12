@@ -1,4 +1,5 @@
-import { Building2, ShieldCheck, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Building2, ShieldCheck, Target } from 'lucide-react';
 import PublicNav from '../components/PublicNav';
 
 function AboutPage({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -22,7 +23,10 @@ function AboutPage({ isAuthenticated }: { isAuthenticated: boolean }) {
         </section>
 
         <section className="grid gap-6 sm:grid-cols-2">
-          <div className="holo-panel holo-corner p-6 sm:p-8">
+          <Link
+            to="/services"
+            className="holo-panel holo-corner group block p-6 transition hover:-translate-y-0.5 hover:border-brand-green/40 sm:p-8"
+          >
             <span className="flex h-11 w-11 items-center justify-center border border-brand-green/30 bg-brand-green/10 text-brand-green">
               <Target size={20} />
             </span>
@@ -32,9 +36,15 @@ function AboutPage({ isAuthenticated }: { isAuthenticated: boolean }) {
               protecting a personal laptop or a small team's hardware deserves the same visibility — without
               needing an IT department to set it up.
             </p>
-          </div>
+            <span className="mt-4 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.18em] text-brand-green">
+              See the capabilities <ArrowRight size={10} />
+            </span>
+          </Link>
 
-          <div className="holo-panel holo-corner p-6 sm:p-8">
+          <Link
+            to="/download"
+            className="holo-panel holo-corner group block p-6 transition hover:-translate-y-0.5 hover:border-brand-green/40 sm:p-8"
+          >
             <span className="flex h-11 w-11 items-center justify-center border border-brand-green/30 bg-brand-green/10 text-brand-green">
               <ShieldCheck size={20} />
             </span>
@@ -44,16 +54,25 @@ function AboutPage({ isAuthenticated }: { isAuthenticated: boolean }) {
               MalmegaVille team. We ship fixes and new detection features continuously, and every account is
               backed by the same infrastructure we run our own monitoring on.
             </p>
-          </div>
+            <span className="mt-4 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.18em] text-brand-green">
+              Get the agent <ArrowRight size={10} />
+            </span>
+          </Link>
         </section>
 
-        <section className="holo-panel holo-corner p-6 text-center sm:p-10">
+        <Link
+          to="/services"
+          className="holo-panel holo-corner group block p-6 text-center transition hover:border-brand-green/40 sm:p-10"
+        >
           <h2 className="text-2xl font-semibold text-white sm:text-3xl">Questions about how it works?</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400 sm:text-base">
             Take a look at what Sentinel monitors on the Services page, or install the agent and see your first
             sync land in the dashboard within minutes.
           </p>
-        </section>
+          <span className="mt-4 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.18em] text-brand-green">
+            Open services <ArrowRight size={11} className="transition group-hover:translate-x-0.5" />
+          </span>
+        </Link>
       </div>
     </div>
   );

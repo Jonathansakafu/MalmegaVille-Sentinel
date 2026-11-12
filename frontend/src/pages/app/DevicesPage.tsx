@@ -75,8 +75,14 @@ function DevicesPage() {
               return (
                 <article
                   key={device._id ?? device.deviceId}
-                  className={`holo-panel holo-corner p-4 transition ${device.isLost ? 'holo-panel-danger' : 'hover:border-brand-green/35'}`}
+                  className={`relative holo-panel holo-corner p-4 transition ${device.isLost ? 'holo-panel-danger' : 'hover:border-brand-green/35'}`}
                 >
+                  <Link
+                    to={`/dashboard/devices/${encodeURIComponent(device.deviceId)}`}
+                    aria-label={`Open ${device.name}`}
+                    className="absolute inset-0 z-0"
+                  />
+                  <div className="pointer-events-none relative z-10">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-bold text-white">{device.name}</h2>
@@ -95,7 +101,7 @@ function DevicesPage() {
                   <button
                     type="button"
                     onClick={() => copyId(device.deviceId)}
-                    className="mt-3 flex w-full items-center justify-between gap-2 border border-white/8 bg-black/30 px-2 py-1.5 text-left font-mono text-[10px] text-slate-400 transition hover:border-brand-green/40 hover:text-brand-green"
+                    className="mt-3 flex w-full items-center justify-between gap-2 border border-white/8 bg-black/30 px-2 py-1.5 text-left font-mono text-[10px] text-slate-400 transition hover:border-brand-green/40 hover:text-brand-green pointer-events-auto"
                   >
                     <span className="truncate">{device.deviceId}</span>
                     <Copy size={11} />
@@ -125,13 +131,13 @@ function DevicesPage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link
                       to={`/dashboard/devices/${encodeURIComponent(device.deviceId)}`}
-                      className="flex min-h-[38px] items-center gap-1.5 border border-brand-green/30 bg-brand-green/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green transition hover:bg-brand-green/20"
+                      className="pointer-events-auto flex min-h-[38px] items-center gap-1.5 border border-brand-green/30 bg-brand-green/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green transition hover:bg-brand-green/20"
                     >
                       Open agent <ArrowRight size={12} />
                     </Link>
                     <Link
                       to={`/dashboard/evidence?device=${encodeURIComponent(device.deviceId)}`}
-                      className="flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-300 transition hover:border-brand-green/40 hover:text-brand-green"
+                      className="pointer-events-auto flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-300 transition hover:border-brand-green/40 hover:text-brand-green"
                     >
                       <Images size={12} /> Captures
                     </Link>
@@ -139,7 +145,7 @@ function DevicesPage() {
                       type="button"
                       disabled={pending}
                       onClick={() => toggleLost(device)}
-                      className={`flex min-h-[38px] items-center gap-1.5 border px-3 font-mono text-[10px] uppercase tracking-[0.14em] transition disabled:opacity-40 ${
+                      className={`pointer-events-auto flex min-h-[38px] items-center gap-1.5 border px-3 font-mono text-[10px] uppercase tracking-[0.14em] transition disabled:opacity-40 ${
                         device.isLost
                           ? 'border-brand-green/40 text-brand-green hover:bg-brand-green/10'
                           : 'border-brand-danger/40 text-rose-300 hover:bg-brand-danger/10'
@@ -155,10 +161,11 @@ function DevicesPage() {
                           removeDevice(device);
                         }
                       }}
-                      className="flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400 transition hover:border-brand-danger/50 hover:text-rose-300"
+                      className="pointer-events-auto flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400 transition hover:border-brand-danger/50 hover:text-rose-300"
                     >
                       <Trash2 size={12} /> Remove
                     </button>
+                  </div>
                   </div>
                 </article>
               );
