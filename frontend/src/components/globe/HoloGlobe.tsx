@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
 import * as THREE from 'three';
 import { WORLD_LAND } from './worldLand';
 
@@ -15,6 +16,32 @@ type HoloGlobeProps = {
   reducedMotion: boolean;
   onPinClick?: (pin: GlobePin) => void;
 };
+
+type MapStyle = 'blueprint' | 'satellite' | 'night';
+
+const MAP_STYLE_OPTIONS: { id: MapStyle; label: string }[] = [
+  { id: 'blueprint', label: 'Vector' },
+  { id: 'satellite', label: 'Satellite' },
+  { id: 'night', label: 'Night' }
+];
+
+const MIN_DISTANCE = 4.5;
+const MAX_DISTANCE = 10;
+const DEFAULT_DISTANCE = 6.2;
+
+const clampDistance = (value: number) => Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, value));
+
+const STYLE_KEY = 'sentinel_globe_style';
+
+function readStoredStyle(): MapStyle {
+  try {
+    const stored = window.localStorage.getItem(STYLE_KEY);
+    if (stored === 'satellite' || stored === 'night' || stored === 'blueprint') return stored;
+  } catch {
+    // Private-mode storage can throw; fall back to the vector map.
+  }
+  return 'blueprint';
+}
 
 function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -109,6 +136,54 @@ function createWorldTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+// Transparent neon coastlines drawn on top of photographic imagery, so the
+// satellite and night views still read as part of the console.
+function createCoastlineTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2048;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const { width, height } = canvas;
+    const project = (lon: number, lat: number): [number, number] => [
+      ((lon + 180) / 360) * width,
+      ((90 - lat) / 180) * height
+    ];
+
+    ctx.beginPath();
+    for (const ring of WORLD_LAND) {
+      let started = false;
+      for (const [lon, lat] of ring) {
+        const [x, y] = project(lon, lat);
+        if (started) ctx.lineTo(x, y);
+        else {
+          ctx.moveTo(x, y);
+          started = true;
+        }
+      }
+      ctx.closePath();
+    }
+
+    ctx.shadowColor = 'rgba(0, 255, 136, 0.8)';
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(0, 255, 136, 0.75)';
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = 'rgba(190, 255, 228, 0.55)';
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function createPinTexture(critical: boolean): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -151,17 +226,39 @@ function createPinTexture(critical: boolean): THREE.CanvasTexture {
   return texture;
 }
 
-// Real WebGL globe (three.js): equirectangular land texture generated from
-// Natural Earth data, drag-to-rotate with inertia, and clickable pin sprites.
+// Real WebGL globe (three.js): vector, satellite and night-lights mappings,
+// drag-to-rotate with inertia, wheel/pinch zoom, and clickable pin sprites.
 function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const clickRef = useRef(onPinClick);
+  const [style, setStyle] = useState<MapStyle>(readStoredStyle);
+  const styleRef = useRef<MapStyle>(style);
+  const apiRef = useRef<{
+    zoomBy?: (factor: number) => void;
+    resetView?: () => void;
+    setStyle?: (next: MapStyle) => void;
+  }>({});
+  const [textureReady, setTextureReady] = useState<Record<'satellite' | 'night', boolean>>({
+    satellite: false,
+    night: false
+  });
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     clickRef.current = onPinClick;
   }, [onPinClick]);
+
+  const chooseStyle = (next: MapStyle) => {
+    styleRef.current = next;
+    setStyle(next);
+    apiRef.current.setStyle?.(next);
+    try {
+      window.localStorage.setItem(STYLE_KEY, next);
+    } catch {
+      // Preference simply won't persist.
+    }
+  };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -199,11 +296,31 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     const worldTexture = createWorldTexture();
     worldTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
-    const surface = new THREE.Mesh(
+    const blueprintMaterial = new THREE.MeshBasicMaterial({ map: worldTexture });
+    const satelliteMaterial = new THREE.MeshPhongMaterial({
+      shininess: 32,
+      specular: new THREE.Color(0x14343c)
+    });
+    const nightMaterial = new THREE.MeshBasicMaterial();
+
+    const surface = new THREE.Mesh<THREE.SphereGeometry, THREE.Material>(
       new THREE.SphereGeometry(2, 96, 64),
-      new THREE.MeshBasicMaterial({ map: worldTexture })
+      blueprintMaterial
     );
     globe.add(surface);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+    sun.position.set(1.4, 2.2, 5);
+    scene.add(sun);
+
+    const coastlineTexture = createCoastlineTexture();
+    coastlineTexture.anisotropy = worldTexture.anisotropy;
+    const coastline = new THREE.Mesh(
+      new THREE.SphereGeometry(2.006, 96, 64),
+      new THREE.MeshBasicMaterial({ map: coastlineTexture, transparent: true, opacity: 0, depthWrite: false })
+    );
+    globe.add(coastline);
 
     const wireframe = new THREE.Mesh(
       new THREE.SphereGeometry(2.008, 48, 32),
@@ -224,7 +341,47 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     ring.rotation.x = Math.PI / 2.2;
     globe.add(ring);
 
-    const textures: THREE.Texture[] = [worldTexture];
+    const textures: THREE.Texture[] = [worldTexture, coastlineTexture];
+    let cancelled = false;
+
+    const applyStyle = (name: MapStyle) => {
+      // Imagery may still be downloading; keep the current material until the
+      // loader calls back instead of flashing a black sphere.
+      if (name === 'satellite' && !satelliteMaterial.map) return;
+      if (name === 'night' && !nightMaterial.map) return;
+      surface.material =
+        name === 'satellite' ? satelliteMaterial : name === 'night' ? nightMaterial : blueprintMaterial;
+      (coastline.material as THREE.MeshBasicMaterial).opacity = name === 'blueprint' ? 0 : 0.3;
+      (wireframe.material as THREE.MeshBasicMaterial).opacity = name === 'blueprint' ? 0.045 : 0.03;
+    };
+    apiRef.current.setStyle = applyStyle;
+
+    const loader = new THREE.TextureLoader();
+    const loadSurfaceMap = (url: string, material: THREE.MeshBasicMaterial | THREE.MeshPhongMaterial, key: 'satellite' | 'night') => {
+      const texture = loader.load(url, () => {
+        if (cancelled) return;
+        material.map = texture;
+        material.needsUpdate = true;
+        setTextureReady((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+        if (styleRef.current === key) applyStyle(key);
+      });
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      textures.push(texture);
+    };
+
+    loadSurfaceMap('/globe/earth-day.jpg', satelliteMaterial, 'satellite');
+    loadSurfaceMap('/globe/earth-night.png', nightMaterial, 'night');
+
+    const specularTexture = loader.load('/globe/earth-specular.jpg', () => {
+      if (cancelled) return;
+      satelliteMaterial.specularMap = specularTexture;
+      satelliteMaterial.needsUpdate = true;
+    });
+    specularTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    textures.push(specularTexture);
+
+    applyStyle(styleRef.current);
     const pinTextures = new Map<boolean, THREE.Texture>();
     const pinSprites: THREE.Sprite[] = [];
     const hitSprites: THREE.Sprite[] = [];
@@ -277,9 +434,34 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     const meanLon = pins.length ? pins.reduce((sum, pin) => sum + pin.lon, 0) / pins.length : 0;
     let yaw = pins.length ? Math.PI / 2 - ((meanLon + 180) * Math.PI) / 180 : 0.35;
     let pitch = -0.18;
+    const initialYaw = yaw;
+    const initialPitch = pitch;
     let velocityX = 0;
     let velocityY = 0;
     let lastInteraction = performance.now();
+
+    let distance = DEFAULT_DISTANCE;
+    let targetDistance = DEFAULT_DISTANCE;
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinchSpread = 0;
+    const spread = () => {
+      const points = [...pointers.values()];
+      if (points.length < 2) return 0;
+      return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+    };
+
+    apiRef.current.zoomBy = (factor: number) => {
+      targetDistance = clampDistance(targetDistance * factor);
+      lastInteraction = performance.now();
+    };
+    apiRef.current.resetView = () => {
+      yaw = initialYaw;
+      pitch = initialPitch;
+      velocityX = 0;
+      velocityY = 0;
+      targetDistance = DEFAULT_DISTANCE;
+      lastInteraction = performance.now();
+    };
 
     const isFacingCamera = (sprite: THREE.Sprite) => {
       const world = sprite.getWorldPosition(new THREE.Vector3());
@@ -318,6 +500,14 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size >= 2) {
+        dragging = false;
+        pinchSpread = spread();
+        hideTooltip();
+        lastInteraction = performance.now();
+        return;
+      }
       const index = pickPin(event.clientX, event.clientY);
       if (index >= 0) {
         const rect = canvas.getBoundingClientRect();
@@ -343,6 +533,18 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      if (pointers.has(event.pointerId)) {
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      }
+      if (pointers.size >= 2) {
+        const nextSpread = spread();
+        if (pinchSpread > 0 && nextSpread > 0) {
+          targetDistance = clampDistance(targetDistance * (pinchSpread / nextSpread));
+        }
+        pinchSpread = nextSpread;
+        lastInteraction = performance.now();
+        return;
+      }
       if (dragging) {
         const dx = event.clientX - lastX;
         const dy = event.clientY - lastY;
@@ -366,6 +568,9 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     };
 
     const finishDrag = (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size >= 2) return;
+      pinchSpread = 0;
       if (!dragging) return;
       dragging = false;
       const wasTap = travel < 8;
@@ -386,11 +591,18 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
       if (!dragging) hideTooltip();
     };
 
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      targetDistance = clampDistance(targetDistance + event.deltaY * 0.0018);
+      lastInteraction = performance.now();
+    };
+
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerup', finishDrag);
     canvas.addEventListener('pointercancel', finishDrag);
     canvas.addEventListener('pointerleave', onPointerLeave);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
 
     let frame = 0;
     let paused = false;
@@ -419,14 +631,23 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
       globe.rotation.y = yaw;
       globe.rotation.x = pitch;
 
-      if (!reducedMotion) {
-        ring.rotation.z = elapsed * 0.05;
-        pinSprites.forEach((sprite, index) => {
-          const base = pinScale[index];
-          const pulse = 1 + Math.sin(elapsed * 2.4 + index * 0.7) * 0.055;
-          sprite.scale.set(base.x * pulse, base.y * pulse, 1);
-        });
-      }
+      distance += (targetDistance - distance) * 0.14;
+      camera.position.z = distance;
+
+      // Shrink pins slightly as the camera closes in, so they stay markers
+      // instead of growing to cover the region under the cursor.
+      const zoomComp = Math.pow(distance / DEFAULT_DISTANCE, 0.55);
+      pinSprites.forEach((sprite, index) => {
+        const base = pinScale[index];
+        const pulse = reducedMotion ? 1 : 1 + Math.sin(elapsed * 2.4 + index * 0.7) * 0.055;
+        sprite.scale.set(base.x * zoomComp * pulse, base.y * zoomComp * pulse, 1);
+      });
+      hitSprites.forEach((hit, index) => {
+        const base = pinScale[index];
+        hit.scale.set(base.x * 2.1 * zoomComp, base.y * 2.1 * zoomComp, 1);
+      });
+
+      if (!reducedMotion) ring.rotation.z = elapsed * 0.05;
 
       renderer.render(scene, camera);
     };
@@ -448,6 +669,7 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     observer.observe(mount);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
@@ -456,6 +678,8 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
       canvas.removeEventListener('pointerup', finishDrag);
       canvas.removeEventListener('pointercancel', finishDrag);
       canvas.removeEventListener('pointerleave', onPointerLeave);
+      canvas.removeEventListener('wheel', onWheel);
+      apiRef.current = {};
       scene.traverse((object) => {
         const mesh = object as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
@@ -464,6 +688,9 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
         else material?.dispose();
       });
       textures.forEach((texture) => texture.dispose());
+      blueprintMaterial.dispose();
+      satelliteMaterial.dispose();
+      nightMaterial.dispose();
       renderer.dispose();
       if (canvas.parentElement === mount) mount.removeChild(canvas);
     };
@@ -478,15 +705,68 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
   }
 
   return (
-    <div className="relative h-full w-full min-w-0 overflow-hidden" aria-label="Device location globe" role="img">
+    <div className="relative h-full w-full min-w-0 overflow-hidden" aria-label="Interactive device location globe" role="img">
       <div ref={mountRef} className="h-full w-full" />
       <div
         ref={tooltipRef}
         className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap border border-brand-green/40 bg-black/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green opacity-0 transition-opacity duration-150"
       />
+      <div className="absolute right-2 top-2 z-20 flex flex-col items-end gap-1.5">
+        <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
+          {MAP_STYLE_OPTIONS.map((option) => {
+            const active = style === option.id;
+            const pending =
+              option.id === 'satellite' ? !textureReady.satellite : option.id === 'night' ? !textureReady.night : false;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => chooseStyle(option.id)}
+                aria-pressed={active}
+                className={`px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] transition ${
+                  active
+                    ? 'bg-brand-green/15 text-brand-green'
+                    : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
+                }`}
+              >
+                {option.label}
+                {pending ? (
+                  <span className="ml-1 inline-block h-1 w-1 animate-pulse rounded-full bg-brand-cyan align-middle" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            onClick={() => apiRef.current.zoomBy?.(1.25)}
+            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition first:border-l-0 hover:bg-white/[0.06] hover:text-brand-green"
+          >
+            <Minus size={11} />
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            onClick={() => apiRef.current.zoomBy?.(0.8)}
+            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green"
+          >
+            <Plus size={11} />
+          </button>
+          <button
+            type="button"
+            aria-label="Reset view"
+            onClick={() => apiRef.current.resetView?.()}
+            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green"
+          >
+            <RotateCcw size={11} />
+          </button>
+        </div>
+      </div>
       <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
         <span className="h-1.5 w-1.5 bg-brand-green" />
-        drag to rotate · click a pin
+        drag · scroll to zoom · click a pin
       </div>
     </div>
   );
