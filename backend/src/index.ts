@@ -53,7 +53,18 @@ app.use(
         // client-side fetch() to OSRM's routing API for the route line.
         'connect-src': ["'self'", 'https://router.project-osrm.org']
       }
-    }
+    },
+    // Helmet's default is `no-referrer`, which strips the Referer from every
+    // subresource request a page makes. OpenStreetMap's tile CDN treats a
+    // referer-less request as anonymous hotlinking and answers with its
+    // "Access blocked" placeholder tile - as a normal HTTP 200 image, so
+    // Leaflet's tileerror never fires and the map silently shows the block
+    // page instead of an error. Verified live: same tile URL returns the
+    // block image with no Referer and real map tiles with one.
+    // strict-origin-when-cross-origin keeps the full URL - which for
+    // map-viewer.html carries the capture's lat/lon - same-origin only, and
+    // sends just the bare origin to OSM.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
   })
 );
 app.use(cors());
