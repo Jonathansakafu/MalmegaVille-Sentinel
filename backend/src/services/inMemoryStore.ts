@@ -393,3 +393,358 @@ export function removeMobileDeviceByToken(fcmToken: string): void {
     mobileDevices.splice(index, 1);
   }
 }
+
+export interface InMemoryProtectedFolder {
+  id: string;
+  userId: string;
+  deviceId: string;
+  path: string;
+  label: string;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const protectedFolders: InMemoryProtectedFolder[] = [];
+let nextProtectedFolderId = 1;
+
+export function listProtectedFolders(userId: string, deviceId?: string): InMemoryProtectedFolder[] {
+  return protectedFolders
+    .filter((folder) => folder.userId === userId)
+    .filter((folder) => !deviceId || folder.deviceId === deviceId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export function findProtectedFolderByIdForUser(id: string, userId: string): InMemoryProtectedFolder | undefined {
+  return protectedFolders.find((folder) => folder.id === id && folder.userId === userId);
+}
+
+export function findProtectedFolderByPath(userId: string, deviceId: string, path: string): InMemoryProtectedFolder | undefined {
+  return protectedFolders.find(
+    (folder) => folder.userId === userId && folder.deviceId === deviceId && folder.path.toLowerCase() === path.toLowerCase()
+  );
+}
+
+export function addProtectedFolder(input: {
+  userId: string;
+  deviceId: string;
+  path: string;
+  label: string;
+}): InMemoryProtectedFolder {
+  const folder: InMemoryProtectedFolder = {
+    ...input,
+    id: String(nextProtectedFolderId++),
+    enabled: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  protectedFolders.push(folder);
+  return folder;
+}
+
+export function updateProtectedFolder(
+  id: string,
+  userId: string,
+  update: { label?: string; enabled?: boolean }
+): InMemoryProtectedFolder | undefined {
+  const folder = findProtectedFolderByIdForUser(id, userId);
+  if (!folder) return undefined;
+  if (typeof update.label === 'string') folder.label = update.label;
+  if (typeof update.enabled === 'boolean') folder.enabled = update.enabled;
+  folder.updatedAt = new Date();
+  return folder;
+}
+
+export function removeProtectedFolder(id: string, userId: string): boolean {
+  const index = protectedFolders.findIndex((folder) => folder.id === id && folder.userId === userId);
+  if (index === -1) return false;
+  protectedFolders.splice(index, 1);
+  return true;
+}
+
+export interface InMemoryManifestEntry {
+  relativePath: string;
+  sha256: string;
+  sizeBytes: number;
+  lastModifiedUtc?: Date;
+}
+
+export interface InMemoryManifestChange {
+  type: 'added' | 'modified' | 'removed';
+  relativePath: string;
+  previousSha256?: string;
+  sha256?: string;
+  sizeBytes?: number;
+}
+
+export interface InMemoryFileManifest {
+  id: string;
+  userId: string;
+  deviceId: string;
+  folderId: string;
+  path: string;
+  label?: string;
+  entries: InMemoryManifestEntry[];
+  fileCount: number;
+  totalBytes: number;
+  changes: InMemoryManifestChange[];
+  changeCount: number;
+  integrityStatus: 'baseline' | 'unchanged' | 'changed';
+  scannedAtUtc: Date;
+  createdAt: Date;
+}
+
+const fileManifests: InMemoryFileManifest[] = [];
+let nextFileManifestId = 1;
+
+export function findLatestManifestForFolder(userId: string, folderId: string): InMemoryFileManifest | undefined {
+  return fileManifests
+    .filter((manifest) => manifest.userId === userId && manifest.folderId === folderId)
+    .sort((a, b) => b.scannedAtUtc.getTime() - a.scannedAtUtc.getTime())[0];
+}
+
+export function addFileManifest(
+  input: Omit<InMemoryFileManifest, 'id' | 'createdAt'>
+): InMemoryFileManifest {
+  const manifest: InMemoryFileManifest = { ...input, id: String(nextFileManifestId++), createdAt: new Date() };
+  fileManifests.push(manifest);
+  return manifest;
+}
+
+export function listManifestsForUser(userId: string, folderId?: string, limit = 50): InMemoryFileManifest[] {
+  return fileManifests
+    .filter((manifest) => manifest.userId === userId)
+    .filter((manifest) => !folderId || manifest.folderId === folderId)
+    .sort((a, b) => b.scannedAtUtc.getTime() - a.scannedAtUtc.getTime())
+    .slice(0, limit);
+}
+
+export interface InMemoryNetworkDestination {
+  id: string;
+  userId: string;
+  deviceId: string;
+  remoteAddress: string;
+  remotePort?: number;
+  processName?: string;
+  isPublic: boolean;
+  verdict: 'unknown' | 'trusted';
+  label?: string;
+  seenCount: number;
+  firstSeenUtc: Date;
+  lastSeenUtc: Date;
+}
+
+const networkDestinations: InMemoryNetworkDestination[] = [];
+let nextNetworkDestinationId = 1;
+
+export function findNetworkDestination(
+  userId: string,
+  deviceId: string,
+  remoteAddress: string
+): InMemoryNetworkDestination | undefined {
+  return networkDestinations.find(
+    (destination) =>
+      destination.userId === userId && destination.deviceId === deviceId && destination.remoteAddress === remoteAddress
+  );
+}
+
+export function upsertNetworkDestination(input: {
+  userId: string;
+  deviceId: string;
+  remoteAddress: string;
+  remotePort?: number;
+  processName?: string;
+  isPublic: boolean;
+}): { destination: InMemoryNetworkDestination; created: boolean } {
+  const existing = findNetworkDestination(input.userId, input.deviceId, input.remoteAddress);
+  if (existing) {
+    existing.seenCount += 1;
+    existing.lastSeenUtc = new Date();
+    if (input.remotePort) existing.remotePort = input.remotePort;
+    if (input.processName) existing.processName = input.processName;
+    return { destination: existing, created: false };
+  }
+
+  const destination: InMemoryNetworkDestination = {
+    ...input,
+    id: String(nextNetworkDestinationId++),
+    verdict: 'unknown',
+    seenCount: 1,
+    firstSeenUtc: new Date(),
+    lastSeenUtc: new Date()
+  };
+  networkDestinations.push(destination);
+  return { destination, created: true };
+}
+
+export function listNetworkDestinations(userId: string): InMemoryNetworkDestination[] {
+  return networkDestinations
+    .filter((destination) => destination.userId === userId)
+    .sort((a, b) => b.lastSeenUtc.getTime() - a.lastSeenUtc.getTime());
+}
+
+export function updateNetworkDestination(
+  id: string,
+  userId: string,
+  update: { verdict?: 'unknown' | 'trusted'; label?: string }
+): InMemoryNetworkDestination | undefined {
+  const destination = networkDestinations.find((entry) => entry.id === id && entry.userId === userId);
+  if (!destination) return undefined;
+  if (update.verdict) destination.verdict = update.verdict;
+  if (typeof update.label === 'string') destination.label = update.label;
+  return destination;
+}
+
+export interface InMemoryNetworkConnection {
+  remoteAddress: string;
+  remotePort?: number;
+  processName?: string;
+  state?: string;
+}
+
+export interface InMemoryNetworkSnapshot {
+  id: string;
+  userId: string;
+  deviceId: string;
+  deviceName?: string;
+  connections: InMemoryNetworkConnection[];
+  connectionCount: number;
+  publicCount: number;
+  unknownCount: number;
+  capturedAtUtc: Date;
+  createdAt: Date;
+}
+
+const networkSnapshots: InMemoryNetworkSnapshot[] = [];
+let nextNetworkSnapshotId = 1;
+
+export function addNetworkSnapshot(
+  input: Omit<InMemoryNetworkSnapshot, 'id' | 'createdAt'>
+): InMemoryNetworkSnapshot {
+  const snapshot: InMemoryNetworkSnapshot = { ...input, id: String(nextNetworkSnapshotId++), createdAt: new Date() };
+  networkSnapshots.push(snapshot);
+  if (networkSnapshots.length > 2000) networkSnapshots.splice(0, networkSnapshots.length - 2000);
+  return snapshot;
+}
+
+export function listNetworkSnapshots(userId: string, deviceId?: string, limit = 100): InMemoryNetworkSnapshot[] {
+  return networkSnapshots
+    .filter((snapshot) => snapshot.userId === userId)
+    .filter((snapshot) => !deviceId || snapshot.deviceId === deviceId)
+    .sort((a, b) => b.capturedAtUtc.getTime() - a.capturedAtUtc.getTime())
+    .slice(0, limit);
+}
+
+export interface InMemoryRestoreJob {
+  id: string;
+  userId: string;
+  deviceId: string;
+  sourceKind: 'capture' | 'protected_file';
+  captureId?: string;
+  backupId?: string;
+  sourcePath?: string;
+  restorePath?: string;
+  fileName: string;
+  sizeBytes?: number;
+  status: 'queued' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+  verificationHash?: string;
+  restoredPath?: string;
+  error?: string;
+  requestedAtUtc: Date;
+  startedAtUtc?: Date;
+  completedAtUtc?: Date;
+}
+
+const restoreJobs: InMemoryRestoreJob[] = [];
+let nextRestoreJobId = 1;
+
+export function addRestoreJob(
+  input: Omit<InMemoryRestoreJob, 'id' | 'requestedAtUtc' | 'status'>
+): InMemoryRestoreJob {
+  const job: InMemoryRestoreJob = {
+    ...input,
+    id: String(nextRestoreJobId++),
+    status: 'queued',
+    requestedAtUtc: new Date()
+  };
+  restoreJobs.push(job);
+  return job;
+}
+
+export function listRestoreJobsForUser(userId: string): InMemoryRestoreJob[] {
+  return restoreJobs
+    .filter((job) => job.userId === userId)
+    .sort((a, b) => b.requestedAtUtc.getTime() - a.requestedAtUtc.getTime());
+}
+
+export function findRestoreJobByIdForUser(id: string, userId: string): InMemoryRestoreJob | undefined {
+  return restoreJobs.find((job) => job.id === id && job.userId === userId);
+}
+
+export function findRestoreJobById(id: string): InMemoryRestoreJob | undefined {
+  return restoreJobs.find((job) => job.id === id);
+}
+
+export function findQueuedRestoreJobsForDevice(deviceId: string): InMemoryRestoreJob[] {
+  return restoreJobs
+    .filter((job) => job.deviceId === deviceId && job.status === 'queued')
+    .sort((a, b) => a.requestedAtUtc.getTime() - b.requestedAtUtc.getTime());
+}
+
+export function updateRestoreJob(
+  id: string,
+  update: Partial<
+    Pick<InMemoryRestoreJob, 'status' | 'startedAtUtc' | 'completedAtUtc' | 'verificationHash' | 'restoredPath' | 'error'>
+  >
+): InMemoryRestoreJob | undefined {
+  const job = findRestoreJobById(id);
+  if (!job) return undefined;
+  Object.assign(job, update);
+  return job;
+}
+
+export interface InMemoryFileBackup {
+  id: string;
+  userId: string;
+  deviceId: string;
+  folderId: string;
+  relativePath: string;
+  sha256: string;
+  sizeBytes: number;
+  storagePath: string;
+  backedUpAtUtc: Date;
+}
+
+const fileBackups: InMemoryFileBackup[] = [];
+let nextFileBackupId = 1;
+
+export function listFileBackupsForFolder(userId: string, folderId: string): InMemoryFileBackup[] {
+  return fileBackups.filter((backup) => backup.userId === userId && backup.folderId === folderId);
+}
+
+export function findFileBackup(
+  userId: string,
+  folderId: string,
+  relativePath: string,
+  sha256: string
+): InMemoryFileBackup | undefined {
+  return fileBackups.find(
+    (backup) =>
+      backup.userId === userId &&
+      backup.folderId === folderId &&
+      backup.relativePath === relativePath &&
+      backup.sha256 === sha256
+  );
+}
+
+export function addFileBackup(
+  input: Omit<InMemoryFileBackup, 'id' | 'backedUpAtUtc'>
+): InMemoryFileBackup {
+  const backup: InMemoryFileBackup = { ...input, id: String(nextFileBackupId++), backedUpAtUtc: new Date() };
+  fileBackups.push(backup);
+  return backup;
+}
+
+export function findFileBackupByIdForUser(id: string, userId: string): InMemoryFileBackup | undefined {
+  return fileBackups.find((backup) => backup.id === id && backup.userId === userId);
+}

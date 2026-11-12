@@ -15,7 +15,10 @@ import TimelinePage from './pages/app/TimelinePage';
 import EvidencePage from './pages/app/EvidencePage';
 import ReportsPage from './pages/app/ReportsPage';
 import SettingsPage from './pages/app/SettingsPage';
-import UnavailablePage from './pages/app/UnavailablePage';
+import FileProtectionPage from './pages/app/FileProtectionPage';
+import NetworkMonitorPage from './pages/app/NetworkMonitorPage';
+import RestoreCenterPage from './pages/app/RestoreCenterPage';
+import ConsoleFrame from './components/shell/ConsoleFrame';
 
 function App() {
   const navigate = useNavigate();
@@ -53,47 +56,50 @@ function App() {
   const isAuthenticated = Boolean(token);
 
   return (
-    <Routes>
-      <Route path="/" element={<HomePage isAuthenticated={isAuthenticated} />} />
-      <Route path="/about" element={<AboutPage isAuthenticated={isAuthenticated} />} />
-      <Route path="/services" element={<ServicesPage isAuthenticated={isAuthenticated} />} />
-      <Route path="/download" element={<DownloadPage isAuthenticated={isAuthenticated} />} />
-      <Route
-        path="/login"
-        element={token ? <Navigate to="/dashboard" replace /> : <LoginPage onAuthSuccess={handleAuthSuccess} />}
-      />
-      <Route
-        path="/dashboard"
-        element={
-          token ? (
-            <DashboardLayout
-              token={token}
-              userEmail={userEmail}
-              username={username}
-              onUsernameChange={handleUsernameChange}
-              onLogout={handleLogout}
-            />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      >
-        <Route index element={<OverviewPage />} />
-        <Route path="devices" element={<DevicesPage />} />
-        <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
-        <Route path="threats" element={<ThreatsPage />} />
-        <Route path="usb" element={<UsbPage />} />
-        <Route path="timeline" element={<TimelinePage />} />
-        <Route path="evidence" element={<EvidencePage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="file-protection" element={<UnavailablePage moduleKey="file-protection" />} />
-        <Route path="network" element={<UnavailablePage moduleKey="network" />} />
-        <Route path="restore" element={<UnavailablePage moduleKey="restore" />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<HomePage isAuthenticated={isAuthenticated} />} />
+        <Route path="/about" element={<AboutPage isAuthenticated={isAuthenticated} />} />
+        <Route path="/services" element={<ServicesPage isAuthenticated={isAuthenticated} />} />
+        <Route path="/download" element={<DownloadPage isAuthenticated={isAuthenticated} />} />
+        <Route
+          path="/login"
+          element={token ? <Navigate to="/dashboard" replace /> : <LoginPage onAuthSuccess={handleAuthSuccess} />}
+        />
+        <Route
+          path="/dashboard"
+          element={
+            token ? (
+              <DashboardLayout
+                token={token}
+                userEmail={userEmail}
+                username={username}
+                onUsernameChange={handleUsernameChange}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        >
+          <Route index element={<OverviewPage />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
+          <Route path="threats" element={<ThreatsPage />} />
+          <Route path="usb" element={<UsbPage />} />
+          <Route path="timeline" element={<TimelinePage />} />
+          <Route path="evidence" element={<EvidencePage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="file-protection" element={<FileProtectionPage />} />
+          <Route path="network" element={<NetworkMonitorPage />} />
+          <Route path="restore" element={<RestoreCenterPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <ConsoleFrame />
+    </>
   );
 }
 

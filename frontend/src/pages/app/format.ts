@@ -9,6 +9,18 @@ export function formatRelativeTime(fromMs: number, nowMs: number): string {
   return `${Math.round(diffHours / 24)}d ago`;
 }
 
+export function formatBytes(bytes: number | undefined | null): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, index);
+  return `${value >= 10 || index === 0 ? Math.round(value) : value.toFixed(1)} ${units[index]}`;
+}
+
+export function shortHash(hash: string | undefined | null): string {
+  return hash ? `${hash.slice(0, 12)}…` : '—';
+}
+
 export function severityStyles(severity: string): { badge: string; dot: string; icon: string } {
   switch (severity.toLowerCase()) {
     case 'critical':

@@ -7,7 +7,6 @@ import {
   Bell,
   ChevronDown,
   Database,
-  FileWarning,
   FolderLock,
   HardDriveDownload,
   Images,
@@ -40,7 +39,6 @@ type NavEntry = {
   label: string;
   icon: typeof LayoutDashboard;
   counter?: 'devices' | 'incidents' | 'captures';
-  soon?: boolean;
 };
 
 const NAV: NavEntry[] = [
@@ -51,9 +49,9 @@ const NAV: NavEntry[] = [
   { to: '/dashboard/timeline', label: 'Event Timeline', icon: Activity },
   { to: '/dashboard/evidence', label: 'Evidence', icon: Images, counter: 'captures' },
   { to: '/dashboard/reports', label: 'Reports', icon: BarChart3 },
-  { to: '/dashboard/file-protection', label: 'File Protection', icon: FolderLock, soon: true },
-  { to: '/dashboard/network', label: 'Network Monitor', icon: Network, soon: true },
-  { to: '/dashboard/restore', label: 'Restore Center', icon: HardDriveDownload, soon: true },
+  { to: '/dashboard/file-protection', label: 'File Protection', icon: FolderLock },
+  { to: '/dashboard/network', label: 'Network Monitor', icon: Network },
+  { to: '/dashboard/restore', label: 'Restore Center', icon: HardDriveDownload },
   { to: '/dashboard/settings', label: 'Settings', icon: SettingsIcon }
 ];
 
@@ -232,7 +230,7 @@ function ShellBrand() {
 function SidebarNav({ counters, onNavigate }: { counters: ShellCounters; onNavigate?: () => void }) {
   return (
     <nav className="mt-5 flex-1 space-y-1 overflow-y-auto pb-4">
-      {NAV.map(({ to, label, icon: Icon, counter, soon }) => (
+      {NAV.map(({ to, label, icon: Icon, counter }) => (
         <NavLink
           key={to}
           to={to}
@@ -248,11 +246,7 @@ function SidebarNav({ counters, onNavigate }: { counters: ShellCounters; onNavig
         >
           <Icon size={16} />
           <span className="truncate">{label}</span>
-          {soon ? (
-            <span className="ml-auto rounded-sm border border-slate-700 px-1 py-0.5 font-mono text-[9px] uppercase tracking-wider text-slate-500">
-              soon
-            </span>
-          ) : counter && counters[counter] > 0 ? (
+          {counter && counters[counter] > 0 ? (
             <span className="ml-auto rounded-sm bg-brand-green/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand-green">
               {counters[counter]}
             </span>
@@ -332,29 +326,6 @@ export function EmptyState({ icon: Icon, title, message }: { icon: typeof Databa
       <Icon size={28} className="text-slate-600" />
       <p className="text-sm font-semibold text-slate-300">{title}</p>
       <p className="max-w-sm text-xs text-slate-500">{message}</p>
-    </div>
-  );
-}
-
-export function UnavailableModule({ title, icon: Icon, requirements }: { title: string; icon: typeof FileWarning; requirements: string[] }) {
-  return (
-    <div className="space-y-4">
-      <PanelTitle icon={Icon} title={title} />
-      <div className="holo-panel holo-corner p-6">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-brand-amber">Not available yet</p>
-        <p className="mt-3 max-w-2xl text-sm text-slate-300">
-          This module has no data source yet. It is shown so the navigation matches the product plan, and it will light up
-          automatically once the agent and API support below exist - nothing here is simulated.
-        </p>
-        <ul className="mt-5 space-y-2">
-          {requirements.map((item) => (
-            <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
-              <Server size={14} className="mt-0.5 shrink-0 text-slate-600" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }

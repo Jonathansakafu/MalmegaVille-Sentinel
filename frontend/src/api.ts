@@ -277,3 +277,224 @@ export async function fetchAuditLogs(token: string): Promise<AuditLogEntry[]> {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+export type ManifestChange = {
+  type: 'added' | 'modified' | 'removed';
+  relativePath: string;
+  previousSha256?: string;
+  sha256?: string;
+  sizeBytes?: number;
+};
+
+export type ManifestSummary = {
+  _id?: string;
+  id?: string;
+  deviceId: string;
+  folderId: string;
+  path: string;
+  label?: string;
+  fileCount: number;
+  totalBytes: number;
+  changeCount: number;
+  integrityStatus: 'baseline' | 'unchanged' | 'changed';
+  scannedAtUtc: string;
+};
+
+export type ManifestDetail = ManifestSummary & {
+  changes?: ManifestChange[];
+  entries: { relativePath: string; sha256: string; sizeBytes: number; lastModifiedUtc?: string }[];
+};
+
+export type ProtectedFolder = {
+  _id?: string;
+  id?: string;
+  deviceId: string;
+  path: string;
+  label: string;
+  enabled: boolean;
+  createdAt?: string;
+  latestManifest: (ManifestSummary & { changes?: ManifestChange[] }) | null;
+};
+
+export type ProtectionStatus = {
+  stats: {
+    folders: number;
+    enabledFolders: number;
+    protectedFiles: number;
+    totalBytes: number;
+    changedFiles: number;
+    foldersWithChanges: number;
+    lastScanUtc: string | null;
+  };
+  folders: ProtectedFolder[];
+};
+
+export type FileBackup = {
+  id: string;
+  folderId: string;
+  deviceId: string;
+  relativePath: string;
+  sha256: string;
+  sizeBytes: number;
+  backedUpAtUtc: string;
+};
+
+export async function fetchProtectionStatus(token: string): Promise<ProtectionStatus> {
+  return request('/api/protection/status', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function addProtectedFolder(
+  token: string,
+  input: { deviceId: string; path: string; label: string }
+): Promise<ProtectedFolder> {
+  return request('/api/protection/folders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateProtectedFolder(
+  token: string,
+  id: string,
+  update: { label?: string; enabled?: boolean }
+): Promise<ProtectedFolder> {
+  return request(`/api/protection/folders/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(update)
+  });
+}
+
+export async function removeProtectedFolder(token: string, id: string): Promise<void> {
+  const response = await fetch(`/api/protection/folders/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message ?? 'Failed to remove the protected folder.');
+  }
+}
+
+export async function fetchManifest(token: string, id: string): Promise<ManifestDetail> {
+  return request(`/api/protection/manifests/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function fetchFileBackups(token: string, folderId: string): Promise<FileBackup[]> {
+  return request(`/api/protection/backups?folderId=${encodeURIComponent(folderId)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export type NetworkDestination = {
+  _id?: string;
+  id?: string;
+  deviceId: string;
+  remoteAddress: string;
+  remotePort?: number;
+  processName?: string;
+  isPublic: boolean;
+  verdict: 'unknown' | 'trusted';
+  label?: string;
+  seenCount: number;
+  firstSeenUtc: string;
+  lastSeenUtc: string;
+};
+
+export type NetworkOverview = {
+  stats: {
+    activeDevices: number;
+    connections: number;
+    publicConnections: number;
+    destinations: number;
+    unknownDestinations: number;
+    trustedDestinations: number;
+  };
+  latest: {
+    deviceId: string;
+    deviceName: string;
+    connectionCount: number;
+    publicCount: number;
+    unknownCount: number;
+    capturedAtUtc: string;
+    active: boolean;
+  }[];
+  destinations: NetworkDestination[];
+};
+
+export async function fetchNetworkOverview(token: string): Promise<NetworkOverview> {
+  return request('/api/network', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function setNetworkDestinationVerdict(
+  token: string,
+  id: string,
+  verdict: 'unknown' | 'trusted',
+  label?: string
+): Promise<NetworkDestination> {
+  return request(`/api/network/destinations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ verdict, label })
+  });
+}
+
+export type RestoreJob = {
+  _id?: string;
+  id?: string;
+  deviceId: string;
+  sourceKind: 'capture' | 'protected_file';
+  captureId?: string;
+  backupId?: string;
+  sourcePath?: string;
+  restorePath?: string;
+  fileName: string;
+  sizeBytes?: number;
+  status: 'queued' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+  verificationHash?: string;
+  restoredPath?: string;
+  error?: string;
+  requestedAtUtc: string;
+  startedAtUtc?: string;
+  completedAtUtc?: string;
+};
+
+export type CreateRestoreJobInput = {
+  deviceId: string;
+  sourceKind: 'capture' | 'protected_file';
+  captureId?: string;
+  backupId?: string;
+  sourcePath?: string;
+  restorePath?: string;
+  fileName?: string;
+  sizeBytes?: number;
+  verificationHash?: string;
+};
+
+export async function fetchRestoreJobs(token: string): Promise<RestoreJob[]> {
+  return request('/api/restore/jobs', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function createRestoreJob(token: string, input: CreateRestoreJobInput): Promise<RestoreJob> {
+  return request('/api/restore/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input)
+  });
+}
+
+export async function cancelRestoreJob(token: string, id: string): Promise<RestoreJob> {
+  return request(`/api/restore/jobs/${id}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}

@@ -32,6 +32,14 @@ export const notificationLogoUrl = process.env.NOTIFICATION_LOGO_URL ?? `${dashb
 export const captureStorageDir = process.env.CAPTURE_STORAGE_DIR
   ? path.resolve(process.env.CAPTURE_STORAGE_DIR)
   : path.join(process.cwd(), 'capture-storage');
+// Hash-verified copies of protected files. Kept beside captures so the single
+// persisted volume already used in production also holds restore points.
+export const backupStorageDir = process.env.BACKUP_STORAGE_DIR
+  ? path.resolve(process.env.BACKUP_STORAGE_DIR)
+  : path.join(captureStorageDir, 'backups');
+export const backupMaxFileBytes = process.env.BACKUP_MAX_FILE_BYTES
+  ? Number(process.env.BACKUP_MAX_FILE_BYTES)
+  : 25 * 1024 * 1024;
 export const captureMaxFileBytes = process.env.CAPTURE_MAX_FILE_BYTES
   ? Number(process.env.CAPTURE_MAX_FILE_BYTES)
   : 25 * 1024 * 1024;

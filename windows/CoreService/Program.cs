@@ -22,6 +22,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<SystemMonitoringHostedService>();
         services.AddHostedService<ProcessMonitorHostedService>();
         services.AddHostedService<StartupAppMonitorHostedService>();
+        services.AddHostedService<ProtectionAgentHostedService>();
+        services.AddHostedService<NetworkTelemetryHostedService>();
+        services.AddHostedService<RestoreAgentHostedService>();
         services.AddHostedService<SmsFallbackHostedService>();
     })
     .ConfigureLogging(logging =>

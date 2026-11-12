@@ -17,6 +17,9 @@ import geocodeRoutes from './routes/geocodeRoutes.js';
 import pushRoutes from './routes/pushRoutes.js';
 import auditLogRoutes from './routes/auditLogRoutes.js';
 import mobileDeviceRoutes from './routes/mobileDeviceRoutes.js';
+import protectionRoutes from './routes/protectionRoutes.js';
+import networkRoutes from './routes/networkRoutes.js';
+import restoreRoutes from './routes/restoreRoutes.js';
 import { validateStartupConfig } from './startup.js';
 import { mongodbUri, dblessTestMode } from './config.js';
 
@@ -68,7 +71,9 @@ app.use(
   })
 );
 app.use(cors());
-app.use(express.json());
+// Folder manifests carry one SHA-256 row per file and can legitimately exceed
+// the 100 KB default long before the 5,000-entry cap is reached.
+app.use(express.json({ limit: '2mb' }));
 app.use(mongoSanitize());
 
 app.use('/api/auth', authRoutes);
@@ -82,6 +87,9 @@ app.use('/api/geocode', geocodeRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/mobile-devices', mobileDeviceRoutes);
+app.use('/api/protection', protectionRoutes);
+app.use('/api/network', networkRoutes);
+app.use('/api/restore', restoreRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', application: 'malmegaville-sentinel-backend' });

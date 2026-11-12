@@ -8,11 +8,14 @@ import {
   Crosshair,
   Download,
   Fingerprint,
+  FolderLock,
+  HardDriveDownload,
   KeyRound,
   LockKeyhole,
   Mail,
   MapPin,
   MonitorSmartphone,
+  Network,
   Radar,
   ScanLine,
   ShieldAlert,
@@ -59,6 +62,30 @@ const CAPABILITIES: { icon: LucideIcon; title: string; description: string; stat
     status: 'Encrypted',
     code: 'MOD-04',
     to: '/services#alerts'
+  },
+  {
+    icon: FolderLock,
+    title: 'File integrity watch',
+    description: 'SHA-256 manifests diffed every scan, alerts on tampering, and a verified backup of every changed file.',
+    status: 'Active',
+    code: 'MOD-05',
+    to: '/dashboard/file-protection'
+  },
+  {
+    icon: Network,
+    title: 'Outbound network monitor',
+    description: 'Every established connection with its owning process; first contact with a public peer raises an alert.',
+    status: 'Active',
+    code: 'MOD-06',
+    to: '/dashboard/network'
+  },
+  {
+    icon: HardDriveDownload,
+    title: 'Verified restore center',
+    description: 'Push evidence or a stored backup back to a device and re-hash the written file before calling it recovered.',
+    status: 'Active',
+    code: 'MOD-07',
+    to: '/dashboard/restore'
   }
 ];
 
@@ -93,11 +120,11 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
           <StatCard
             icon={Radar}
             label="Active modules"
-            value="08"
+            value="11"
             suffix="/11"
-            note="3 in development"
+            note="All modules online"
             tone="green"
-            filled={8}
+            filled={11}
             segments={11}
             to="/services"
           />
@@ -246,7 +273,7 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
 
         <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div>
-            <SectionHeader label="Capability matrix" title="Four modules, one operator console" meta="04 active" icon={ScanLine} />
+            <SectionHeader label="Capability matrix" title="Seven modules, one operator console" meta="07 live" icon={ScanLine} />
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {CAPABILITIES.map(({ icon: Icon, title, description, status, code, to }) => (
                 <Link
@@ -298,6 +325,9 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
               <p className="mt-2 text-slate-500">$ sentinel status --all</p>
               <p className="text-brand-green">&gt; usb guard ............... armed</p>
               <p className="text-brand-green">&gt; login watcher ........... armed</p>
+              <p className="text-brand-green">&gt; integrity watch ......... armed</p>
+              <p className="text-brand-cyan">&gt; network telemetry ....... streaming</p>
+              <p className="text-brand-green">&gt; restore channel ......... verified</p>
               <p className="text-brand-cyan">&gt; evidence channel ........ encrypted</p>
               <p className="flex items-center gap-1 text-brand-green">
                 <span className="text-slate-500">sentinel@core:~$</span>

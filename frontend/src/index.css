@@ -141,6 +141,35 @@ body {
   }
 }
 
+/* Console chassis drawn around the whole product on wide screens. */
+.console-frame {
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.55);
+}
+
+.console-frame-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: rgba(0, 255, 136, 0.7);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.console-frame-scan::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32vh;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 136, 0.045), transparent);
+  transform: translateY(-100%);
+  animation: scanline 11s linear infinite;
+  pointer-events: none;
+}
+
+html[data-effects='low'] .console-frame-scan::after {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
