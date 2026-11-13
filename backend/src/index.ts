@@ -42,15 +42,29 @@ app.use(
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         // Default has no frame-src, which falls back to default-src 'self'.
-        // No longer used for the map itself (that's a real embedded Leaflet
-        // map now, not an iframe), kept in case anything else ever needs it.
-        'frame-src': ["'self'", 'https://www.openstreetmap.org'],
+        // The location window embeds Google's own viewer (output=embed) so the
+        // map never leaves the app; Google may redirect through the consent
+        // host in some regions.
+        'frame-src': [
+          "'self'",
+          'https://www.openstreetmap.org',
+          'https://www.google.com',
+          'https://maps.google.com',
+          'https://consent.google.com'
+        ],
         // Default img-src is 'self' data: - missing blob: (what
-        // URL.createObjectURL() produces for fetched capture photos) and the
-        // OpenStreetMap tile subdomains the Leaflet map's tiles load from.
+        // URL.createObjectURL() produces for fetched capture photos), the
+        // OpenStreetMap tile subdomains, and Esri's World Imagery tiles used
+        // by the console (non-Google) deep-zoom map.
         // Same silent-failure pattern each time: no console error, the
         // resource just doesn't render.
-        'img-src': ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+        'img-src': [
+          "'self'",
+          'data:',
+          'blob:',
+          'https://*.tile.openstreetmap.org',
+          'https://server.arcgisonline.com'
+        ],
         // No explicit connect-src previously meant it fell back to
         // default-src 'self', which would have silently blocked the
         // client-side fetch() to OSRM's routing API for the route line.

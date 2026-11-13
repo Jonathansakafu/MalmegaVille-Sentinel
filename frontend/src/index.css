@@ -204,3 +204,39 @@ html[data-effects='low'] .neon-text,
 html[data-effects='low'] .cyan-text {
   text-shadow: none;
 }
+
+/* Leaflet's stock white chrome reads as a foreign element inside the console
+   frame; these overrides keep the deep-zoom map visually part of the HUD. */
+.leaflet-control-zoom a {
+  background: rgba(2, 9, 6, 0.9) !important;
+  border-color: rgba(0, 255, 136, 0.28) !important;
+  color: #00ff88 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(0, 255, 136, 0.14) !important;
+}
+
+.leaflet-control-zoom a.leaflet-disabled {
+  color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(2, 9, 6, 0.78) !important;
+  color: #64748b !important;
+}
+
+.leaflet-control-attribution a {
+  color: #00d9ff !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(2, 9, 6, 0.95) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}

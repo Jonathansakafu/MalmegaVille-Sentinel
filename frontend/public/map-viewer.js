@@ -38,7 +38,12 @@ try {
   if (isNaN(lat) || isNaN(lon)) {
     showError('No location available.');
   } else if (typeof L === 'undefined') {
-    showError('Map library failed to load.');
+    // Leaflet is self-hosted, but keep the location visible even if it fails:
+    // Google's viewer does not need it.
+    document.getElementById('google').src =
+      'https://maps.google.com/maps?q=' + lat + ',' + lon + '&hl=en&z=19&t=k&output=embed';
+    document.getElementById('viewBar').style.display = 'none';
+    document.getElementById('map').style.display = 'none';
   } else {
     var map = L.map('map').setView([lat, lon], 15);
     var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -48,6 +53,36 @@ try {
       showError('Map tiles failed to load. Check the phone\'s internet connection.');
     });
     L.marker([lat, lon]).addTo(map).bindPopup('Device location').openPopup();
+
+    // Google's own embeddable viewer is the default so this window shows
+    // Google imagery without handing off to an external Maps app. Tactical
+    // keeps the Leaflet map for live route tracking (and as a fallback when
+    // Google frames are blocked on the device's network).
+    var googleFrame = document.getElementById('google');
+    var googleWrap = document.getElementById('googleWrap');
+    var viewBar = document.getElementById('viewBar');
+    var trackBar = document.getElementById('trackBar');
+    var trackingAvailable = wantsRoute && !!navigator.geolocation;
+
+    function googleUrl(kind) {
+      return 'https://maps.google.com/maps?q=' + lat + ',' + lon + '&hl=en&z=19&t=' +
+        (kind === 'sat' ? 'k' : 'm') + '&output=embed';
+    }
+
+    function setView(view) {
+      var googleOn = view === 'sat' || view === 'road';
+      googleWrap.style.display = googleOn ? 'block' : 'none';
+      if (googleOn) googleFrame.src = googleUrl(view);
+      trackBar.style.display = trackingAvailable && view === 'tactical' ? 'block' : 'none';
+      Array.prototype.forEach.call(viewBar.querySelectorAll('[data-view]'), function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+      });
+      if (!googleOn) map.invalidateSize();
+    }
+
+    Array.prototype.forEach.call(viewBar.querySelectorAll('[data-view]'), function (btn) {
+      btn.addEventListener('click', function () { setView(btn.getAttribute('data-view')); });
+    });
 
     if (wantsRoute && navigator.geolocation) {
       var originIcon = L.icon({
@@ -146,6 +181,10 @@ try {
         if (watchId !== null) stopTracking(); else startTracking();
       });
     }
+
+    // Route mode opens on the tactical map so the tracking control is
+    // immediately usable; a plain "view on map" opens on Google satellite.
+    setView(trackingAvailable ? 'tactical' : 'sat');
   }
 } catch (error) {
   showError('Map failed to load: ' + (error && error.message ? error.message : error));

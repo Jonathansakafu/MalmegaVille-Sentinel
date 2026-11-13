@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { Globe2, LocateFixed, Minus, Plus, RotateCcw } from 'lucide-react';
 import * as THREE from 'three';
+import EmbeddedMap from './EmbeddedMap';
 import { WORLD_LAND } from './worldLand';
 
 export type GlobePin = {
@@ -27,9 +28,15 @@ const MAP_STYLE_OPTIONS: { id: MapStyle; label: string }[] = [
   { id: 'night', label: 'Night' }
 ];
 
-const MIN_DISTANCE = 4.5;
+// Zooming past DEEP_ZOOM_DISTANCE hands the view over to real tiled imagery:
+// the globe is a single 2K texture, so no amount of camera travel can resolve
+// buildings. The takeover keeps the same window but paints it with satellite
+// tiles down to z19, which is where individual buildings become legible.
+const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 10;
 const DEFAULT_DISTANCE = 6.2;
+const DEEP_ZOOM_DISTANCE = 3.4;
+const RETURN_DISTANCE = 4.8;
 
 const clampDistance = (value: number) => Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, value));
 
@@ -240,7 +247,10 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     zoomBy?: (factor: number) => void;
     resetView?: () => void;
     setStyle?: (next: MapStyle) => void;
+    openStreetLevel?: () => void;
+    leaveStreetLevel?: () => void;
   }>({});
+  const [localView, setLocalView] = useState<{ lat: number; lon: number; label: string } | null>(null);
   const [textureReady, setTextureReady] = useState<Record<'satellite' | 'night', boolean>>({
     satellite: false,
     night: false
@@ -260,6 +270,11 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     } catch {
       // Preference simply won't persist.
     }
+  };
+
+  const closeStreetLevel = () => {
+    apiRef.current.leaveStreetLevel?.();
+    setLocalView(null);
   };
 
   useEffect(() => {
@@ -452,9 +467,67 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
       return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
     };
 
-    apiRef.current.zoomBy = (factor: number) => {
-      targetDistance = clampDistance(targetDistance * factor);
+    // Once the camera is this close, the texture is useless; swap in tiled
+    // imagery instead. The focus is the pin nearest the camera, or the
+    // surface point the camera is aimed at when there are no pins.
+    let streetOpen = false;
+    const facingWorld = new THREE.Vector3();
+    const enterStreetLevel = () => {
+      if (streetOpen) return;
+      streetOpen = true;
+
+      let focusPin: GlobePin | null = null;
+      let closestZ = 0.7;
+      for (let index = 0; index < pinSprites.length; index += 1) {
+        const pin = pins[index];
+        if (!pin) continue;
+        pinSprites[index].getWorldPosition(facingWorld);
+        if (facingWorld.z > closestZ) {
+          closestZ = facingWorld.z;
+          focusPin = pin;
+        }
+      }
+
+      let focus: { lat: number; lon: number; label: string };
+      if (focusPin) {
+        focus = { lat: focusPin.lat, lon: focusPin.lon, label: focusPin.label };
+      } else {
+        // Local surface point currently facing the camera: invert the globe's
+        // YXZ rotation and the lat/lon -> vector3 projection above.
+        const cp = Math.cos(pitch);
+        const sp = Math.sin(pitch);
+        const cy = Math.cos(yaw);
+        const sy = Math.sin(yaw);
+        const vx = -sy;
+        const vy = sp * cy;
+        const vz = cp * cy;
+        focus = {
+          lat: 90 - (Math.acos(Math.max(-1, Math.min(1, vy))) * 180) / Math.PI,
+          lon: (Math.atan2(vz, -vx) * 180) / Math.PI - 180,
+          label: 'View centre'
+        };
+      }
+
+      targetDistance = RETURN_DISTANCE;
       lastInteraction = performance.now();
+      setLocalView(focus);
+    };
+    apiRef.current.openStreetLevel = enterStreetLevel;
+    apiRef.current.leaveStreetLevel = () => {
+      streetOpen = false;
+      targetDistance = RETURN_DISTANCE;
+      lastInteraction = performance.now();
+    };
+
+    const nudgeZoom = (next: number) => {
+      if (streetOpen) return;
+      targetDistance = clampDistance(next);
+      if (targetDistance <= DEEP_ZOOM_DISTANCE) enterStreetLevel();
+      lastInteraction = performance.now();
+    };
+
+    apiRef.current.zoomBy = (factor: number) => {
+      nudgeZoom(targetDistance * factor);
     };
     apiRef.current.resetView = () => {
       yaw = initialYaw;
@@ -541,7 +614,7 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
       if (pointers.size >= 2) {
         const nextSpread = spread();
         if (pinchSpread > 0 && nextSpread > 0) {
-          targetDistance = clampDistance(targetDistance * (pinchSpread / nextSpread));
+          nudgeZoom(targetDistance * (pinchSpread / nextSpread));
         }
         pinchSpread = nextSpread;
         lastInteraction = performance.now();
@@ -595,8 +668,7 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      targetDistance = clampDistance(targetDistance + event.deltaY * 0.0018);
-      lastInteraction = performance.now();
+      nudgeZoom(targetDistance + event.deltaY * 0.0018);
     };
 
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -764,12 +836,54 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
           >
             <RotateCcw size={11} />
           </button>
+          <button
+            type="button"
+            aria-label="Open street-level imagery"
+            title="Street-level imagery"
+            onClick={() => apiRef.current.openStreetLevel?.()}
+            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-cyan"
+          >
+            <LocateFixed size={11} />
+          </button>
         </div>
       </div>
       <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
         <span className="h-1.5 w-1.5 bg-brand-green" />
-        drag · scroll to zoom · click a pin
+        drag · zoom to street level · click a pin
       </div>
+
+      {localView ? (
+        <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[#020906]">
+          <div className="flex items-center justify-between gap-2 border-b border-brand-cyan/25 px-2 py-1.5">
+            <p className="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-brand-cyan">
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-cyan align-middle" />
+              Street level · {localView.label}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500 sm:inline">
+                {localView.lat.toFixed(4)}, {localView.lon.toFixed(4)}
+              </span>
+              <button
+                type="button"
+                onClick={closeStreetLevel}
+                className="flex min-h-[26px] items-center gap-1 border border-brand-green/40 px-2 font-mono text-[9px] uppercase tracking-[0.14em] text-brand-green transition hover:bg-brand-green/15"
+              >
+                <Globe2 size={11} />
+                Globe
+              </button>
+            </div>
+          </div>
+          <div className="relative min-h-0 flex-1">
+            <EmbeddedMap
+              lat={localView.lat}
+              lon={localView.lon}
+              label={localView.label}
+              zoom={19}
+              defaultProvider="console"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
