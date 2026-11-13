@@ -301,7 +301,7 @@ function RestoreCenterPage() {
       {error ? <div className="border border-brand-danger/40 bg-brand-danger/10 p-3 text-sm text-rose-200">{error}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <section id="new-restore" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+        <section id="new-restore" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
           <PanelTitle icon={HardDriveDownload} title="New restore job" />
 
           <div className="mt-3 grid grid-cols-2 gap-1.5">
@@ -440,7 +440,7 @@ function RestoreCenterPage() {
           </p>
         </section>
 
-        <section id="restore-jobs" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+        <section id="restore-jobs" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={History}
             title="Restore history"

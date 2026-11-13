@@ -60,7 +60,7 @@ function SettingsPage() {
         </p>
       </div>
 
-      <section className="holo-panel holo-corner p-4 sm:p-5">
+      <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
         <PanelTitle icon={Volume2} title="Sound &amp; experience" />
         <p className="mt-2 text-xs text-slate-500">
           Synthesised on this device with the Web Audio API - no audio files are downloaded, and nothing plays until you interact

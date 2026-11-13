@@ -223,7 +223,7 @@ function NetworkMonitorPage() {
       {error ? <div className="border border-brand-danger/40 bg-brand-danger/10 p-3 text-sm text-rose-200">{error}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <section id="destinations" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+        <section id="destinations" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={Globe2}
             title="Destination inventory"
@@ -341,7 +341,7 @@ function NetworkMonitorPage() {
           </p>
         </section>
 
-        <section id="agent-activity" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+        <section id="agent-activity" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={Server}
             title="Agent activity"

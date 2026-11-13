@@ -163,7 +163,7 @@ function DeviceDetailPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle icon={MonitorSmartphone} title="Agent profile" />
           <dl className="mt-4 space-y-3 text-sm">
             <Row label="Device ID" value={<span className="break-all font-mono text-xs text-slate-300">{device.deviceId}</span>} />
@@ -184,7 +184,7 @@ function DeviceDetailPage() {
           ) : null}
         </section>
 
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={ShieldAlert}
             title="Incident history"

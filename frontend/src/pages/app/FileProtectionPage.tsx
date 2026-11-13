@@ -290,7 +290,7 @@ function FileProtectionPage() {
       {error ? <div className="border border-brand-danger/40 bg-brand-danger/10 p-3 text-sm text-rose-200">{error}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <section id="protected-folders" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+        <section id="protected-folders" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={FolderLock}
             title="Watched folders"
@@ -411,7 +411,7 @@ function FileProtectionPage() {
         </section>
 
         <div className="space-y-4">
-          <section id="integrity-feed" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+          <section id="integrity-feed" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
             <PanelTitle
               icon={FileWarning}
               title="Integrity feed"
@@ -465,7 +465,7 @@ function FileProtectionPage() {
             </Link>
           </section>
 
-          <section id="add-folder" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5">
+          <section id="add-folder" className="holo-panel holo-corner scroll-mt-24 p-4 sm:p-5 min-w-0">
             <PanelTitle icon={Plus} title="Protect a folder" />
             <p className="mt-3 text-xs text-slate-400">
               Use an absolute path on the agent machine. Changed files up to 25 MB are uploaded as hash-verified backups

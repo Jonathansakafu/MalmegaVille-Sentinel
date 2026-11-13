@@ -238,19 +238,19 @@ function HomePage({ isAuthenticated }: { isAuthenticated: boolean }) {
                 </div>
               </div>
 
-              <div className="relative h-[300px] sm:h-[350px]">
+              <div className="relative h-[330px] sm:h-[350px]">
                 <div className="pointer-events-none absolute inset-0 grid-fade" />
                 <HoloGlobe pins={[]} reducedMotion={experience.reducedMotion} />
-                <div className="pointer-events-none absolute left-3 top-3 space-y-1.5 font-mono text-[9px] uppercase tracking-[0.16em]">
+                <div className="pointer-events-none absolute left-3 top-3 hidden space-y-1.5 font-mono text-[9px] uppercase tracking-[0.16em] sm:block">
                   <p className="text-slate-500">lat 00.000</p>
                   <p className="text-slate-500">lon 00.000</p>
                 </div>
-                <div className="absolute bottom-3 left-3 space-y-1.5 font-mono text-[9px] uppercase tracking-[0.16em]">
-                  <p className="flex items-center gap-2 text-slate-400"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
-                  <p className="flex items-center gap-2 text-slate-400"><span className="h-2 w-2 rounded-full bg-brand-danger" /> Lost device</p>
-                  <p className="flex items-center gap-2 text-slate-500"><span className="h-2 w-2 rounded-full border border-brand-cyan" /> Coverage ring</p>
+                <div className="pointer-events-none absolute bottom-1 left-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[9px] uppercase tracking-[0.08em] text-slate-400 sm:bottom-3 sm:flex-col sm:items-start sm:gap-y-1.5 sm:tracking-[0.16em]">
+                  <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
+                  <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-danger" /> Lost device</p>
+                  <p className="hidden items-center gap-1.5 text-slate-500 sm:flex"><span className="h-2 w-2 rounded-full border border-brand-cyan" /> Coverage ring</p>
                 </div>
-                <p className="absolute inset-x-0 bottom-3 mx-auto max-w-[15rem] text-center font-mono text-[9px] uppercase leading-relaxed tracking-[0.14em] text-slate-600">
+                <p className="absolute inset-x-0 bottom-3 mx-auto hidden max-w-[15rem] text-center font-mono text-[9px] uppercase leading-relaxed tracking-[0.14em] text-slate-600 sm:block">
                   Device locations render here as soon as an agent reports one.
                 </p>
               </div>

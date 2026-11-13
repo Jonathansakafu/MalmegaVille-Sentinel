@@ -194,33 +194,33 @@ function OverviewPage() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <section className="holo-panel holo-corner min-h-[340px] p-4 sm:p-5">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <section className="holo-panel holo-corner min-h-[340px] min-w-0 p-4 sm:p-5">
           <PanelTitle
             icon={Radar}
             title="Global threat map"
             action={<span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">{pins.length} located</span>}
           />
-          <div className="relative mt-2 h-[300px] sm:h-[360px]">
+          <div className="relative mt-2 h-[330px] sm:h-[360px]">
             <div className="pointer-events-none absolute inset-0 grid-fade" />
             <HoloGlobe
               pins={pins}
               reducedMotion={experience.current.reducedMotion}
               onPinClick={setSelectedPin}
             />
-            <div className="pointer-events-none absolute bottom-2 left-2 space-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
-              <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
-              <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-danger" /> Lost device</p>
+            <div className="pointer-events-none absolute bottom-1 left-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[9px] uppercase tracking-[0.08em] text-slate-400 sm:bottom-2 sm:left-2 sm:text-[10px] sm:tracking-[0.16em]">
+              <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-green" /> Safe device</p>
+              <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-danger" /> Lost device</p>
             </div>
             {pins.length === 0 ? (
-              <p className="absolute inset-x-0 bottom-12 text-center font-mono text-[11px] text-slate-500">
+              <p className="absolute inset-x-0 bottom-10 mx-auto max-w-[16rem] px-3 text-center font-mono text-[10px] leading-relaxed text-slate-500 sm:bottom-12 sm:text-[11px]">
                 No captured locations yet — pins appear once an agent reports one.
               </p>
             ) : null}
           </div>
         </section>
 
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner min-w-0 p-4 sm:p-5">
           <PanelTitle icon={AlertTriangle} title="Threat activity" action={<span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-brand-green"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-green" />Live</span>} />
           {recentIncidents.length === 0 ? (
             <EmptyState icon={ShieldCheck} title="No incidents" message="Nothing has been flagged on your devices yet." />
@@ -256,7 +256,7 @@ function OverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={MonitorSmartphone}
             title="Device agents"
@@ -321,7 +321,7 @@ function OverviewPage() {
           )}
         </section>
 
-        <section className="holo-panel holo-corner flex flex-col p-4 sm:p-5">
+        <section className="holo-panel holo-corner flex flex-col p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={ShieldCheck}
             title="Security posture"
@@ -343,7 +343,7 @@ function OverviewPage() {
           </div>
         </section>
 
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle icon={ShieldAlert} title="System status" />
           <ul className="mt-3 space-y-2.5 text-sm">
             <StatusRow to="/dashboard/devices" label="Core service sync" value={latestSync ? formatRelativeTime(latestSync, now) : 'No data'} ok={Boolean(latestSync)} />
@@ -360,7 +360,7 @@ function OverviewPage() {
         </section>
       </div>
 
-      <section className="holo-panel p-4 sm:p-5">
+      <section className="holo-panel p-4 sm:p-5 min-w-0">
         <div className="flex items-center justify-between gap-3">
           <PanelTitle icon={BellRing} title="Live event stream" />
           <Link to="/dashboard/timeline" className="font-mono text-[10px] uppercase tracking-[0.18em] text-brand-green hover:text-white">

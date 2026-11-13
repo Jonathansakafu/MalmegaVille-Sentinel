@@ -109,7 +109,7 @@ function TimelinePage() {
         </p>
       </div>
 
-      <section className="holo-panel holo-corner p-4 sm:p-5">
+      <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
         <PanelTitle
           icon={Activity}
           title="Chronological stream"

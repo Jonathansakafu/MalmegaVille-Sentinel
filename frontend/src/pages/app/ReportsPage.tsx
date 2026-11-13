@@ -216,7 +216,7 @@ function ReportsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle icon={BarChart3} title={`Activity · last ${range} days`} />
           {scopedIncidents.length === 0 && scopedCaptures.length === 0 ? (
             <EmptyState icon={BarChart3} title="No activity in range" message="Widen the range or wait for your agents to report again." />
@@ -248,7 +248,7 @@ function ReportsPage() {
           )}
         </section>
 
-        <section className="holo-panel holo-corner p-4 sm:p-5">
+        <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle icon={ShieldCheck} title="Severity distribution" />
           <ul className="mt-4 space-y-2.5">
             {Object.entries(severityBreakdown).map(([severity, count]) => {
@@ -278,7 +278,7 @@ function ReportsPage() {
         </section>
       </div>
 
-      <section className="holo-panel holo-corner p-4 sm:p-5">
+      <section className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
         <PanelTitle
           icon={FileSpreadsheet}
           title={`Agent breakdown · ${range}d`}

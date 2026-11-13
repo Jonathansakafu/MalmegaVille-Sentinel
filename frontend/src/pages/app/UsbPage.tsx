@@ -144,7 +144,7 @@ function UsbPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <section id="unknown-drives" className="holo-panel holo-corner p-4 sm:p-5">
+        <section id="unknown-drives" className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={Plug}
             title="Alerted, not yet trusted"
@@ -189,7 +189,7 @@ function UsbPage() {
           )}
         </section>
 
-        <section id="trusted-devices" className="holo-panel holo-corner p-4 sm:p-5">
+        <section id="trusted-devices" className="holo-panel holo-corner p-4 sm:p-5 min-w-0">
           <PanelTitle
             icon={ShieldCheck}
             title="Trusted devices"
@@ -256,7 +256,7 @@ function UsbPage() {
         </section>
       </div>
 
-      <section className="holo-panel p-4 sm:p-5">
+      <section className="holo-panel p-4 sm:p-5 min-w-0">
         <PanelTitle
           icon={Usb}
           title="Captured from USB"

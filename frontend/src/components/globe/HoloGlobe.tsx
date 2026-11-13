@@ -778,76 +778,88 @@ function HoloGlobe({ pins, reducedMotion, onPinClick }: HoloGlobeProps) {
     );
   }
 
+  const controls = (
+    <>
+      <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
+        {MAP_STYLE_OPTIONS.map((option) => {
+          const active = style === option.id;
+          const pending =
+            option.id === 'satellite' ? !textureReady.satellite : option.id === 'night' ? !textureReady.night : false;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => chooseStyle(option.id)}
+              aria-pressed={active}
+              className={`h-8 px-1.5 font-mono text-[9px] uppercase tracking-[0.06em] transition sm:h-auto sm:px-2 sm:py-1 sm:tracking-[0.16em] ${
+                active
+                  ? 'bg-brand-green/15 text-brand-green'
+                  : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
+              }`}
+            >
+              {option.label}
+              {pending ? (
+                <span className="ml-1 inline-block h-1 w-1 animate-pulse rounded-full bg-brand-cyan align-middle" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          onClick={() => apiRef.current.zoomBy?.(1.25)}
+          className="flex h-8 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition first:border-l-0 hover:bg-white/[0.06] hover:text-brand-green sm:h-6 sm:w-7"
+        >
+          <Minus size={12} />
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          onClick={() => apiRef.current.zoomBy?.(0.8)}
+          className="flex h-8 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green sm:h-6 sm:w-7"
+        >
+          <Plus size={12} />
+        </button>
+        <button
+          type="button"
+          aria-label="Reset view"
+          onClick={() => apiRef.current.resetView?.()}
+          className="flex h-8 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green sm:h-6 sm:w-7"
+        >
+          <RotateCcw size={12} />
+        </button>
+        <button
+          type="button"
+          aria-label="Open street-level imagery"
+          title="Street-level imagery"
+          onClick={() => apiRef.current.openStreetLevel?.()}
+          className="flex h-8 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-cyan sm:h-6 sm:w-7"
+        >
+          <LocateFixed size={12} />
+        </button>
+      </div>
+    </>
+  );
+
   return (
-    <div className="relative h-full w-full min-w-0 overflow-hidden" aria-label="Interactive device location globe" role="img">
-      <div ref={mountRef} className="h-full w-full" />
-      <div
-        ref={tooltipRef}
-        className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap border border-brand-green/40 bg-black/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green opacity-0 transition-opacity duration-150"
-      />
-      <div className="absolute right-2 top-2 z-20 flex flex-col items-end gap-1.5">
-        <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
-          {MAP_STYLE_OPTIONS.map((option) => {
-            const active = style === option.id;
-            const pending =
-              option.id === 'satellite' ? !textureReady.satellite : option.id === 'night' ? !textureReady.night : false;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => chooseStyle(option.id)}
-                aria-pressed={active}
-                className={`px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] transition ${
-                  active
-                    ? 'bg-brand-green/15 text-brand-green'
-                    : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
-                }`}
-              >
-                {option.label}
-                {pending ? (
-                  <span className="ml-1 inline-block h-1 w-1 animate-pulse rounded-full bg-brand-cyan align-middle" />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex overflow-hidden border border-white/10 bg-black/70 backdrop-blur-sm">
-          <button
-            type="button"
-            aria-label="Zoom out"
-            onClick={() => apiRef.current.zoomBy?.(1.25)}
-            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition first:border-l-0 hover:bg-white/[0.06] hover:text-brand-green"
-          >
-            <Minus size={11} />
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            onClick={() => apiRef.current.zoomBy?.(0.8)}
-            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green"
-          >
-            <Plus size={11} />
-          </button>
-          <button
-            type="button"
-            aria-label="Reset view"
-            onClick={() => apiRef.current.resetView?.()}
-            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-green"
-          >
-            <RotateCcw size={11} />
-          </button>
-          <button
-            type="button"
-            aria-label="Open street-level imagery"
-            title="Street-level imagery"
-            onClick={() => apiRef.current.openStreetLevel?.()}
-            className="flex h-6 w-7 items-center justify-center border-l border-white/10 text-slate-400 transition hover:bg-white/[0.06] hover:text-brand-cyan"
-          >
-            <LocateFixed size={11} />
-          </button>
+    <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden" aria-label="Interactive device location globe" role="img">
+      {/* Phones: controls sit in their own row so they never cover the sphere. */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 pb-1.5 sm:hidden">{controls}</div>
+      <div className="relative min-h-0 flex-1">
+        <div ref={mountRef} className="h-full w-full" />
+        <div
+          ref={tooltipRef}
+          className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap border border-brand-green/40 bg-black/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green opacity-0 transition-opacity duration-150"
+        />
+        <div className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-slate-500 sm:hidden">
+          <span className="h-1.5 w-1.5 bg-brand-green" />
+          tap a pin
         </div>
       </div>
-      <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+      <div className="absolute right-2 top-2 z-20 hidden flex-col items-end gap-1.5 sm:flex">{controls}</div>
+      <div className="pointer-events-none absolute bottom-2 right-2 hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500 sm:flex">
         <span className="h-1.5 w-1.5 bg-brand-green" />
         drag · zoom to street level · click a pin
       </div>

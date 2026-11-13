@@ -291,7 +291,7 @@ export function StatTile({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="block truncate font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-[#a3d4b4]/70 sm:text-[0.66rem] sm:tracking-[0.18em]">{label}</span>
+          <span className="block min-h-[2.2em] font-mono text-[9px] uppercase leading-[1.1] tracking-[0.06em] text-[#a3d4b4]/70 sm:min-h-0 sm:truncate sm:text-[0.66rem] sm:leading-none sm:tracking-[0.18em]">{label}</span>
           <p className="mt-1.5 font-mono text-[1.9rem] font-bold leading-none text-white">{value}</p>
         </div>
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center border sm:h-9 sm:w-9 ${palette.tile} ${palette.text}`}>
@@ -311,11 +311,11 @@ export function StatTile({
 export function PanelTitle({ icon: Icon, title, action }: { icon: typeof Server; title: string; action?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-brand-green/10 pb-3">
-      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-slate-100">
-        <Icon size={16} className="text-brand-green" />
+      <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold uppercase leading-snug tracking-[0.14em] text-slate-100">
+        <Icon size={16} className="shrink-0 text-brand-green" />
         {title}
       </h2>
-      {action}
+      {action ? <div className="shrink-0 whitespace-nowrap">{action}</div> : null}
     </div>
   );
 }
