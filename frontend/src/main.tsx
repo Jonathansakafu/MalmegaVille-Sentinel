@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AlertProvider } from './components/ui/Alerts';
+import { ConfirmProvider } from './components/ui/Confirm';
 import { useExperienceSettings } from './lib/experience';
 import { sound } from './lib/sound';
 import './index.css';
@@ -14,7 +15,9 @@ function Root() {
 
   return (
     <AlertProvider>
-      <App />
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
     </AlertProvider>
   );
 }

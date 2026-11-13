@@ -25,6 +25,7 @@ import {
 } from '../../api';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { useAlerts } from '../../components/ui/Alerts';
+import { useConfirm } from '../../components/ui/Confirm';
 import { formatBytes, formatRelativeTime, shortHash } from './format';
 import type { DashboardContext } from './context';
 
@@ -71,6 +72,7 @@ function FolderStatusChip({ folder }: { folder: ProtectedFolder }) {
 function FileProtectionPage() {
   const { token, devices } = useOutletContext<DashboardContext>();
   const { showAlert } = useAlerts();
+  const { confirm } = useConfirm();
   const [data, setData] = useState<ProtectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -170,7 +172,13 @@ function FileProtectionPage() {
   const remove = async (folder: ProtectedFolder) => {
     const id = folderIdOf(folder);
     if (!id) return;
-    if (!window.confirm(`Stop protecting ${folder.label}? Existing manifests and backups are kept.`)) return;
+    const accepted = await confirm({
+      title: 'STOP PROTECTION',
+      message: `Stop protecting ${folder.label}? Existing manifests and backups are kept.`,
+      tone: 'danger',
+      confirmLabel: 'Stop protecting'
+    });
+    if (!accepted) return;
     setBusy(id);
     try {
       await removeProtectedFolder(token, id);

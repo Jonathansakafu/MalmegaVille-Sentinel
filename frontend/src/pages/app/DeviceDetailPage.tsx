@@ -16,6 +16,7 @@ import {
 import CapturesSection from '../../components/CapturesSection';
 import { EmptyState, PanelTitle, StatTile } from '../../components/shell/AppShell';
 import { useAlerts } from '../../components/ui/Alerts';
+import { useConfirm } from '../../components/ui/Confirm';
 import { formatRelativeTime, severityStyles } from './format';
 import type { DashboardContext } from './context';
 
@@ -25,6 +26,7 @@ function DeviceDetailPage() {
   const { devices, incidents, captures, toggleLost, removeDevice, lostStatusPending, reloadCaptures, token } =
     useOutletContext<DashboardContext>();
   const { showAlert } = useAlerts();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const now = Date.now();
   const device = devices.find((entry) => entry.deviceId === deviceId);
@@ -109,10 +111,14 @@ function DeviceDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm(`Remove "${device.name}" from your device inventory? Its past captures are kept.`)) {
-                removeDevice(device).then(() => navigate('/dashboard/devices'));
-              }
+            onClick={async () => {
+              const accepted = await confirm({
+                title: 'REMOVE DEVICE',
+                message: `Remove "${device.name}" from your device inventory? Its past captures are kept.`,
+                tone: 'danger',
+                confirmLabel: 'Remove'
+              });
+              if (accepted) removeDevice(device).then(() => navigate('/dashboard/devices'));
             }}
             className="flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400 transition hover:border-brand-danger/50 hover:text-rose-300"
           >

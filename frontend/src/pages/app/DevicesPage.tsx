@@ -4,6 +4,7 @@ import { ArrowRight, Copy, Images, MonitorSmartphone, Search, ShieldAlert, Shiel
 import { Device } from '../../api';
 import { EmptyState, PanelTitle } from '../../components/shell/AppShell';
 import { useAlerts } from '../../components/ui/Alerts';
+import { useConfirm } from '../../components/ui/Confirm';
 import { formatRelativeTime } from './format';
 import type { DashboardContext } from './context';
 
@@ -14,6 +15,7 @@ function isOnline(device: Device, now: number) {
 function DevicesPage() {
   const { devices, incidents, toggleLost, removeDevice, lostStatusPending } = useOutletContext<DashboardContext>();
   const { showAlert } = useAlerts();
+  const { confirm } = useConfirm();
   const [query, setQuery] = useState('');
   const now = Date.now();
 
@@ -156,10 +158,14 @@ function DevicesPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm(`Remove "${device.name}" from your device inventory? Its past captures are kept.`)) {
-                          removeDevice(device);
-                        }
+                      onClick={async () => {
+                        const accepted = await confirm({
+                          title: 'REMOVE DEVICE',
+                          message: `Remove "${device.name}" from your device inventory? Its past captures are kept.`,
+                          tone: 'danger',
+                          confirmLabel: 'Remove'
+                        });
+                        if (accepted) removeDevice(device);
                       }}
                       className="pointer-events-auto flex min-h-[38px] items-center gap-1.5 border border-white/10 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400 transition hover:border-brand-danger/50 hover:text-rose-300"
                     >

@@ -3,6 +3,7 @@ import { Camera, MapPin, FileArchive, Download, X, Navigation, Trash2 } from 'lu
 import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode, deleteCapture } from '../api';
 import StatusBadge from './StatusBadge';
 import RouteMap, { RouteOption, fetchRouteOptions } from './RouteMap';
+import { useConfirm } from './ui/Confirm';
 
 // Finds the location capture from the same device closest in time to a given
 // capture, so a photo card can show "captured near <street>" without the
@@ -250,10 +251,17 @@ function CaptureDeleteButton({
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const { confirm } = useConfirm();
 
   const handleDelete = async (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!window.confirm('Delete this capture permanently? This cannot be undone.')) {
+    const accepted = await confirm({
+      title: 'DELETE CAPTURE',
+      message: 'Delete this capture permanently? This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete'
+    });
+    if (!accepted) {
       return;
     }
     setDeleting(true);
