@@ -3,6 +3,7 @@ import { Camera, MapPin, FileArchive, Download, X, Navigation, Trash2 } from 'lu
 import { Capture, Device, ReverseGeocodeResult, fetchCaptureBlobUrl, reverseGeocode, deleteCapture } from '../api';
 import StatusBadge from './StatusBadge';
 import RouteMap, { RouteOption, fetchRouteOptions } from './RouteMap';
+import { useAlerts } from './ui/Alerts';
 import { useConfirm } from './ui/Confirm';
 
 // Finds the location capture from the same device closest in time to a given
@@ -618,23 +619,49 @@ function CapturePhoto({ capture, token, onSelect }: { capture: Capture; token: s
 }
 
 function CaptureDownloadLink({ captureId, token, fileName }: { captureId: string; token: string; fileName?: string }) {
+  const [busy, setBusy] = useState(false);
+  const { showAlert } = useAlerts();
+
   const handleDownload = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const url = await fetchCaptureBlobUrl(token, captureId);
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName ?? 'capture';
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // Best effort - the gallery listing already shows the file exists.
+      link.remove();
+      // Revoke after the click has been processed; revoking synchronously can
+      // cancel the download in Safari and for larger files in Chrome.
+      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showAlert({
+        kind: 'success',
+        title: 'DOWNLOAD STARTED',
+        message: `${fileName ?? 'The capture'} is being saved to this device.`
+      });
+    } catch (downloadError) {
+      showAlert({
+        kind: 'denied',
+        title: 'DOWNLOAD FAILED',
+        message: 'The stored file could not be retrieved.',
+        detail: downloadError instanceof Error ? downloadError.message : undefined
+      });
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <button onClick={handleDownload} type="button" className="flex items-center gap-1 text-brand-green hover:underline">
+    <button
+      onClick={handleDownload}
+      type="button"
+      disabled={busy}
+      className="flex items-center gap-1 text-brand-green hover:underline disabled:opacity-50"
+    >
       <Download size={14} />
-      Download
+      {busy ? 'Downloading…' : 'Download'}
     </button>
   );
 }

@@ -356,13 +356,18 @@ router.get('/:id/content', authenticate, dashboardLimiter, async (req, res) => {
     ? findCaptureByIdForUser(req.params.id, userId)
     : await Capture.findOne({ _id: req.params.id, userId });
 
-  if (!capture || capture.skipped || !capture.storagePath) {
-    return res.status(404).json({ message: 'Not found.' });
+  if (!capture) {
+    return res.status(404).json({ message: 'Capture not found.' });
+  }
+  if (capture.skipped || !capture.storagePath) {
+    return res.status(404).json({ message: 'This capture has no stored file.' });
   }
 
   const absPath = path.join(captureStorageDir, path.basename(capture.storagePath));
   if (!fs.existsSync(absPath)) {
-    return res.status(404).json({ message: 'Not found.' });
+    // The database row outlived its file (e.g. evidence captured before the
+    // persistent volume was attached), so say so instead of a generic 404.
+    return res.status(410).json({ message: 'The stored evidence file is no longer available on the server.' });
   }
 
   res.setHeader('Content-Type', capture.mimeType ?? 'application/octet-stream');

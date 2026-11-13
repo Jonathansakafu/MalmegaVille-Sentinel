@@ -121,7 +121,14 @@ export async function fetchCaptureBlobUrl(token: string, captureId: string): Pro
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!response.ok) {
-    throw new Error('Unable to load capture content.');
+    let message = `Unable to load capture content (HTTP ${response.status}).`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body?.message) message = body.message;
+    } catch {
+      // Non-JSON error body - keep the status-code message.
+    }
+    throw new Error(message);
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);
