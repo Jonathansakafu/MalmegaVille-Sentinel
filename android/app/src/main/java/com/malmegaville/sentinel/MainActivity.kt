@@ -1,51 +1,71 @@
 package com.malmegaville.sentinel
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.InputType
-import android.text.TextWatcher
-import android.view.Gravity
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
+import android.util.Base64
 import android.view.View
-import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
+import android.webkit.CookieManager
+import android.webkit.DownloadListener
+import android.webkit.GeolocationPermissions
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
+import org.json.JSONTokener
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.util.UUID
 
-// This is the only place the account's credentials ever get used; once
-// signed in, the app relays SMS in the background with no further UI
-// interaction needed - see SentinelFirebaseMessagingService. Styled as the
-// AuthCard.tsx "SECURE ACCESS" panel so the phone opens inside the exact same
-// console the web dashboard and the Windows agent run in.
+// The phone runs the exact web console - same routes, same panels, same
+// globe - instead of a hand-built native imitation of it. Logging in here
+// writes the same `token` key the site uses into this WebView's storage;
+// the native side then picks that token up and keeps doing the things a web
+// page cannot: registering the phone as a trackable device, the periodic
+// lost-device check, camera capture, and SMS relay.
 class MainActivity : AppCompatActivity() {
 
     private val httpClient = OkHttpClient()
     private val api = SentinelApiClient(httpClient)
     private lateinit var prefs: SharedPreferences
-    private lateinit var statusText: TextView
-    private lateinit var emailInput: EditText
-    private lateinit var passwordInput: EditText
+    private lateinit var webView: WebView
+    private val handler = Handler(Looper.getMainLooper())
+    private var pageReady = false
+    private var agentSessionStarted = false
+
+    private val sessionPoll = object : Runnable {
+        override fun run() {
+            syncSessionFromWeb()
+            handler.postDelayed(this, SESSION_POLL_MILLIS)
+        }
+    }
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -61,7 +81,7 @@ class MainActivity : AppCompatActivity() {
     // app isn't in the foreground (the self-monitoring worker's normal case)
     // can fail outright instead of returning a real GPS position.
     private val requestBackgroundLocationLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op either way - foreground location alone still lets the app work */ }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private fun requestBackgroundLocationIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
@@ -72,192 +92,292 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences(SentinelPrefs.NAME, Context.MODE_PRIVATE)
-        setContentView(buildUi())
+        webView = buildWebConsole()
+        setContentView(webView)
 
-        SentinelSound.boot(this)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) webView.goBack() else finish()
+            }
+        })
+
         requestRuntimePermissions()
-        restoreSession()
     }
 
-    private fun buildUi(): View {
-        fun dp(value: Int) = Ui.dp(this, value)
-        val green = Ui.color(this, R.color.brand_green)
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun buildWebConsole(): WebView {
+        val view = WebView(this)
+        view.setBackgroundColor(0xFF030605.toInt())
+        view.overScrollMode = View.OVER_SCROLL_NEVER
 
-        val root = FrameLayout(this).apply {
-            background = HudBackdropDrawable(this@MainActivity)
+        val debugBuild = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        WebView.setWebContentsDebuggingEnabled(debugBuild)
+
+        view.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            allowFileAccess = false
+            allowContentAccess = false
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
+            mediaPlaybackRequiresUserGesture = true
+            cacheMode = WebSettings.LOAD_DEFAULT
+        }
+        CookieManager.getInstance().setAcceptCookie(true)
+
+        view.addJavascriptInterface(DownloadBridge(), "SentinelNative")
+
+        view.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+                callback?.invoke(origin, true, false)
+            }
         }
 
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        root.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-
-        // Centering host: a ScrollView child only gets a viewport height with
-        // fillViewport, so the card sits optically centred on tall phones and
-        // still scrolls on short ones.
-        val host = FrameLayout(this)
-        scroll.addView(host, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = Ui.panelDrawable(this@MainActivity)
-            setPadding(dp(22), dp(24), dp(22), dp(22))
-        }
-        host.addView(
-            card,
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.CENTER
-                leftMargin = dp(16)
-                rightMargin = dp(16)
-                topMargin = dp(24)
-                bottomMargin = dp(24)
+        view.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                pageReady = false
+                super.onPageStarted(view, url, favicon)
             }
-        )
 
-        // Brand crest in a neon-bordered tile, matching AuthCard.tsx.
-        val logoBox = FrameLayout(this).apply {
-            background = HoloDrawable(
-                fillColor = Ui.withAlpha(green, 0x1A),
-                strokeColor = Ui.withAlpha(green, 0x80),
-                accentColor = green,
-                cutPx = 0f,
-                strokePx = 1f,
-                bracketOffsetPx = 0f,
-                showBrackets = false
-            )
-            layoutParams = LinearLayout.LayoutParams(dp(58), dp(58)).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        }
-        logoBox.addView(
-            ImageView(this).apply {
-                setImageResource(R.drawable.logo)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                setPadding(dp(8), dp(8), dp(8), dp(8))
-            },
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        )
-        card.addView(logoBox)
-
-        card.addView(Ui.spacer(this, 12))
-        card.addView(
-            Ui.monoText(this, "MALMEGAVILLE SENTINEL", 8.5f, Ui.withAlpha(green, 0xCC)).apply {
-                gravity = Gravity.CENTER
-                letterSpacing = 0.32f
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                pageReady = true
+                injectDownloadBridge(view)
+                syncSessionFromWeb()
             }
-        )
-        card.addView(
-            Ui.monoValue(this, "SECURE ACCESS", 20f).apply {
-                gravity = Gravity.CENTER
-                letterSpacing = 0.16f
-                setPadding(0, dp(6), 0, 0)
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val uri = request?.url ?: return false
+                if (uri.host == Uri.parse(SentinelPrefs.WEB_APP_BASE_URL).host) return false
+                return openExternally(uri)
             }
-        )
-        card.addView(
-            Ui.monoText(this, "AUTHORIZED PERSONNEL ONLY", 8.5f, Ui.color(this@MainActivity, R.color.text_hint)).apply {
-                gravity = Gravity.CENTER
-                letterSpacing = 0.2f
-                setPadding(0, dp(6), 0, 0)
-            }
-        )
 
-        card.addView(Ui.spacer(this, 16))
-        card.addView(Ui.divider(this))
-        card.addView(Ui.spacer(this, 16))
-
-        card.addView(Ui.hudLabel(this, "Operator email"))
-        emailInput = styledInput("operator@domain", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
-        card.addView(emailInput, fieldParams(::dp, top = 6, bottom = 14))
-
-        card.addView(Ui.hudLabel(this, "Passphrase"))
-        passwordInput = styledInput("••••••••", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        card.addView(passwordInput, fieldParams(::dp, top = 6, bottom = 14))
-
-        statusText = TextView(this).apply {
-            typeface = Ui.mono(this@MainActivity, 400)
-            textSize = 9.5f
-            letterSpacing = 0.06f
-            setLineSpacing(0f, 1.2f)
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            visibility = View.GONE
-        }
-        card.addView(statusText, fieldParams(::dp, top = 0, bottom = 12))
-
-        card.addView(
-            Ui.primaryButton(this, "JACK IN") { signInAndPair() },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
-                topMargin = dp(2)
-            }
-        )
-
-        card.addView(Ui.spacer(this, 16))
-        card.addView(Ui.divider(this))
-        card.addView(Ui.spacer(this, 12))
-        card.addView(
-            Ui.monoText(this, "TLS CHANNEL · CREDENTIALS NEVER LEAVE THE VAULT", 7.5f, Ui.color(this@MainActivity, R.color.text_hint)).apply {
-                gravity = Gravity.CENTER
-                letterSpacing = 0.16f
-            }
-        )
-
-        // Same chassis as the signed-in console: frame brackets + slow scan band.
-        root.addView(
-            View(this).apply {
-                background = ConsoleFrameDrawable(this@MainActivity)
-                isClickable = false
-                isFocusable = false
-            },
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        )
-        root.addView(
-            ScanlineView(this),
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        )
-
-        return root
-    }
-
-    private fun styledInput(hintText: String, type: Int): EditText =
-        Ui.textInput(this, hintText, type).apply {
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (count != before) SentinelSound.key(this@MainActivity)
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                if (request?.isForMainFrame == true) {
+                    pageReady = false
+                    view?.loadDataWithBaseURL(null, offlineHtml, "text/html", "utf-8", null)
                 }
-                override fun afterTextChanged(s: android.text.Editable?) = Unit
-            })
+            }
         }
 
-    private fun fieldParams(dp: (Int) -> Int, top: Int, bottom: Int) =
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = dp(top)
-            bottomMargin = dp(bottom)
-        }
+        view.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+            if (!url.startsWith("blob:")) {
+                downloadRemotely(url, userAgent, mimeType)
+            }
+        })
 
-    private fun setStatus(message: String, tone: StatusTone = StatusTone.MUTED) {
-        if (message.isBlank()) {
-            statusText.visibility = View.GONE
-            return
-        }
-        val colorInt = when (tone) {
-            StatusTone.MUTED -> Ui.color(this, R.color.hud_label)
-            StatusTone.SUCCESS -> Ui.color(this, R.color.brand_green)
-            StatusTone.ERROR -> Ui.color(this, R.color.status_error)
-        }
-        statusText.text = message.uppercase()
-        statusText.setTextColor(colorInt)
-        statusText.background = HoloDrawable(
-            fillColor = Ui.withAlpha(colorInt, if (tone == StatusTone.MUTED) 0x0F else 0x1A),
-            strokeColor = Ui.withAlpha(colorInt, if (tone == StatusTone.MUTED) 0x33 else 0x66),
-            accentColor = colorInt,
-            cutPx = 0f,
-            strokePx = 1f,
-            bracketOffsetPx = 0f,
-            showBrackets = false
-        )
-        statusText.visibility = View.VISIBLE
+        view.loadUrl("${SentinelPrefs.WEB_APP_BASE_URL}/dashboard")
+        return view
     }
 
-    private enum class StatusTone { MUTED, SUCCESS, ERROR }
+    // The site downloads evidence by fetching the file and clicking a blob:
+    // anchor, which a WebView cannot hand to DownloadManager. This shim
+    // streams that blob to native code in chunks instead, so the download
+    // button behaves the same in the app as in a browser.
+    private fun injectDownloadBridge(view: WebView?) {
+        view?.evaluateJavascript(DOWNLOAD_BRIDGE_JS, null)
+    }
+
+    private fun syncSessionFromWeb() {
+        if (!::webView.isInitialized || !pageReady) return
+        webView.evaluateJavascript(SESSION_PROBE_JS) { raw ->
+            val value = decodeJsString(raw) ?: return@evaluateJavascript
+            when {
+                value == "E" -> Unit
+                value == "T:" -> {
+                    // Signed out in the console - stop watching this phone.
+                    val stored = prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null)
+                    if (!stored.isNullOrBlank()) {
+                        prefs.edit().remove(SentinelPrefs.KEY_AUTH_TOKEN).apply()
+                        LostDeviceWorker.cancelPeriodic(applicationContext)
+                        agentSessionStarted = false
+                    }
+                }
+                value.startsWith("T:") -> {
+                    val token = value.removePrefix("T:")
+                    if (token.isNotBlank()) ensureAgentSession(token)
+                }
+            }
+        }
+    }
+
+    private fun ensureAgentSession(authToken: String) {
+        val stored = prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null)
+        if (stored != authToken) {
+            prefs.edit().putString(SentinelPrefs.KEY_AUTH_TOKEN, authToken).apply()
+            // A different account signed in - re-pair this phone under it.
+            agentSessionStarted = false
+        }
+        if (agentSessionStarted) return
+        agentSessionStarted = true
+        registerDeviceToken(authToken)
+        activateLostDeviceMonitoring(authToken)
+    }
+
+    // Registers this phone as a trackable Device (so it can be marked
+    // lost/found from the dashboard like a PC) and schedules the periodic
+    // check-in that watches for that flag. Best-effort and silent.
+    private fun activateLostDeviceMonitoring(authToken: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val deviceId = SentinelPrefs.getOrCreatePhoneDeviceId(applicationContext)
+                val osLabel = "Android ${Build.VERSION.RELEASE}"
+                api.registerAsDevice(authToken, deviceId, Build.MODEL ?: "Android device", osLabel)
+                LostDeviceWorker.schedulePeriodic(applicationContext)
+            } catch (e: Exception) {
+                // Best effort - retried on next app open.
+            }
+        }
+    }
+
+    private fun registerDeviceToken(authToken: String) {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) return@addOnCompleteListener
+            val fcmToken = task.result
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching { SentinelPrefs.registerDeviceWithBackend(httpClient, authToken, fcmToken) }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+        handler.post(sessionPoll)
+        // Covers the case where the app process was restarted and the console
+        // never re-renders: the native agent keeps running off the stored token.
+        prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null)?.let { ensureAgentSession(it) }
+    }
+
+    override fun onPause() {
+        handler.removeCallbacks(sessionPoll)
+        webView.onPause()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(sessionPoll)
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    private fun openExternally(uri: Uri): Boolean {
+        return try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun downloadRemotely(url: String, userAgent: String?, mimeType: String?) {
+        try {
+            val request = android.app.DownloadManager.Request(Uri.parse(url)).apply {
+                addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
+                if (!userAgent.isNullOrBlank()) addRequestHeader("User-Agent", userAgent)
+                if (!mimeType.isNullOrBlank()) setMimeType(mimeType)
+                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalFilesDir(this@MainActivity, Environment.DIRECTORY_DOWNLOADS, "sentinel-evidence")
+            }
+            (getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager).enqueue(request)
+            Toast.makeText(this, "Download started", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // --- Blob download bridge -------------------------------------------------
+
+    private class PendingDownload(val file: File, val mime: String)
+
+    private inner class DownloadBridge {
+        private val pending = HashMap<String, PendingDownload>()
+
+        @JavascriptInterface
+        fun startDownload(name: String, mime: String): String {
+            val id = UUID.randomUUID().toString()
+            val safeName = name.replace(Regex("[/\\\\:*?\"<>|]"), "_").take(120).ifBlank { "sentinel-capture" }
+            val dir = File(cacheDir, "downloads").apply { mkdirs() }
+            val file = File(dir, safeName)
+            file.delete()
+            synchronized(pending) {
+                pending[id] = PendingDownload(file, mime.ifBlank { "application/octet-stream" })
+            }
+            return id
+        }
+
+        @JavascriptInterface
+        fun appendChunk(id: String, base64: String) {
+            val download = synchronized(pending) { pending[id] } ?: return
+            try {
+                val bytes = Base64.decode(base64, Base64.DEFAULT)
+                FileOutputStream(download.file, true).use { it.write(bytes) }
+            } catch (e: Exception) {
+                // finishDownload reports the failure to the user.
+            }
+        }
+
+        @JavascriptInterface
+        fun finishDownload(id: String) {
+            val download = synchronized(pending) { pending.remove(id) } ?: return
+            publishDownload(download)
+        }
+    }
+
+    private fun publishDownload(download: PendingDownload) {
+        runOnUiThread {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, download.file.name)
+                        put(MediaStore.Downloads.MIME_TYPE, download.mime)
+                        put(MediaStore.Downloads.IS_PENDING, 1)
+                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Sentinel")
+                    }
+                    val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                        ?: throw IOException("Could not create a download entry.")
+                    contentResolver.openOutputStream(uri)?.use { out ->
+                        download.file.inputStream().use { it.copyTo(out) }
+                    } ?: throw IOException("Could not open a download stream.")
+                    values.clear()
+                    values.put(MediaStore.Downloads.IS_PENDING, 0)
+                    contentResolver.update(uri, values, null, null)
+                    download.file.delete()
+                    Toast.makeText(this, "${download.file.name} saved to Downloads/Sentinel", Toast.LENGTH_LONG).show()
+                } else {
+                    val dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: File(filesDir, "downloads")
+                    dir.mkdirs()
+                    val target = File(dir, download.file.name)
+                    download.file.copyTo(target, overwrite = true)
+                    download.file.delete()
+                    shareDownload(target, download.mime)
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun shareDownload(file: File, mime: String) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Save ${file.name}"))
+    }
+
+    private fun decodeJsString(raw: String?): String? {
+        if (raw.isNullOrBlank() || raw == "null") return null
+        return runCatching { JSONTokener(raw).nextValue() as? String }.getOrNull()
+    }
+
+    // --- Permissions ----------------------------------------------------------
 
     private fun requestRuntimePermissions() {
         val permissions = mutableListOf(
@@ -275,120 +395,74 @@ class MainActivity : AppCompatActivity() {
         if (notGranted.isNotEmpty()) {
             requestPermissionLauncher.launch(notGranted.toTypedArray())
         } else {
-            // Foreground location was already granted from a previous
-            // install of the app - the launcher callback above only fires
-            // for a request made just now, so this covers that case too.
             requestBackgroundLocationIfNeeded()
         }
     }
 
-    private fun restoreSession() {
-        val token = prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null)
-        if (token == null) {
-            return
-        }
-        // Already signed in - go straight to the dashboard, same as any app
-        // that remembers you; re-pairing (in case the push token rotated)
-        // happens quietly in the background rather than blocking navigation.
-        registerDeviceToken(token, silent = true)
-        activateLostDeviceMonitoring(token)
-        goToDashboard()
-    }
+    private val offlineHtml = """
+        <!doctype html>
+        <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+        <style>
+        html,body{margin:0;height:100%;background:#030605;color:#F2FFF8;font-family:ui-monospace,Menlo,monospace;display:flex;align-items:center;justify-content:center}
+        .card{border:1px solid rgba(0,255,136,.16);background:#071009;padding:28px;max-width:340px;margin:16px}
+        h1{font-size:14px;letter-spacing:.18em;color:#00FF88;margin:0 0 10px}
+        p{font-size:12px;color:#8FA99B;line-height:1.6;margin:0 0 18px}
+        a{display:block;text-align:center;padding:12px;border:1px solid #00FF88;color:#030605;background:#00FF88;text-decoration:none;font-size:11px;letter-spacing:.18em}
+        </style></head><body><div class="card"><h1>LINK DOWN</h1>
+        <p>The console could not be reached. Check this device's connection and try again.</p>
+        <a href="${SentinelPrefs.WEB_APP_BASE_URL}/dashboard">RE-ESTABLISH LINK</a></div></body></html>
+    """.trimIndent()
 
-    private fun signInAndPair() {
-        val email = emailInput.text.toString().trim()
-        val password = passwordInput.text.toString()
-        if (email.isEmpty() || password.isEmpty()) {
-            setStatus("Enter your email and passphrase.", StatusTone.ERROR)
-            return
-        }
+    companion object {
+        private const val SESSION_POLL_MILLIS = 1500L
 
-        setStatus("Verifying credentials…")
-        SentinelSound.boot(this)
+        // Returns T:<token>, T: when signed out, E when storage is unreadable
+        // (e.g. the offline page), so a transient read can never wipe the
+        // stored session.
+        private const val SESSION_PROBE_JS =
+            "(function(){try{var t=localStorage.getItem('token');return t?('T:'+t):'T:';}catch(e){return 'E';}})()"
 
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val token = withContext(Dispatchers.IO) { login(email, password) }
-                prefs.edit().putString(SentinelPrefs.KEY_AUTH_TOKEN, token).apply()
-                registerDeviceToken(token, silent = true)
-                activateLostDeviceMonitoring(token)
-                goToDashboard(justAuthenticated = true)
-            } catch (e: Exception) {
-                SentinelSound.deny(this@MainActivity)
-                SentinelCinematic.show(this@MainActivity, granted = false)
-                setStatus("Access denied · ${e.message}", StatusTone.ERROR)
-            }
-        }
-    }
-
-    // Registers this phone as a trackable Device (so it can be marked
-    // lost/found from the dashboard like a PC) and schedules the periodic
-    // check-in that watches for that flag. Best-effort and silent - failures
-    // here shouldn't block sign-in, and there's nothing useful to show the
-    // user about a background registration succeeding or not.
-    private fun activateLostDeviceMonitoring(authToken: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val deviceId = SentinelPrefs.getOrCreatePhoneDeviceId(applicationContext)
-                val osLabel = "Android ${Build.VERSION.RELEASE}"
-                api.registerAsDevice(authToken, deviceId, Build.MODEL ?: "Android device", osLabel)
-                LostDeviceWorker.schedulePeriodic(applicationContext)
-            } catch (e: Exception) {
-                // Best effort - will retry next time this is called (app open).
-            }
-        }
-    }
-
-    private fun goToDashboard(justAuthenticated: Boolean = false) {
-        startActivity(
-            android.content.Intent(this, DashboardActivity::class.java)
-                .putExtra(DashboardActivity.EXTRA_JUST_AUTHENTICATED, justAuthenticated)
-        )
-        finish()
-    }
-
-    private fun login(email: String, password: String): String {
-        val json = JSONObject().put("email", email).put("password", password)
-        val body = json.toString().toRequestBody("application/json".toMediaType())
-        val request = Request.Builder()
-            .url("${SentinelPrefs.BACKEND_BASE_URL}/auth/login")
-            .post(body)
-            .build()
-
-        httpClient.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val message = runCatching { JSONObject(responseBody).optString("message") }.getOrNull()
-                throw IOException(message?.takeIf { it.isNotBlank() } ?: "Login failed (${response.code}).")
-            }
-            return JSONObject(responseBody).getString("token")
-        }
-    }
-
-    private fun registerDeviceToken(authToken: String, silent: Boolean = false) {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                if (!silent) setStatus("Could not get a push token: ${task.exception?.message}", StatusTone.ERROR)
-                return@addOnCompleteListener
-            }
-            val fcmToken = task.result
-
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    SentinelPrefs.registerDeviceWithBackend(httpClient, authToken, fcmToken)
-                    if (!silent) {
-                        withContext(Dispatchers.Main) {
-                            setStatus("Paired. This phone will relay SMS alerts when needed.", StatusTone.SUCCESS)
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (!silent) {
-                        withContext(Dispatchers.Main) {
-                            setStatus("Pairing failed: ${e.message}", StatusTone.ERROR)
-                        }
-                    }
+        private const val DOWNLOAD_BRIDGE_JS = """
+            (function(){
+              if (window.__sentinelDownloadBridge) return;
+              window.__sentinelDownloadBridge = true;
+              var blobs = new Map();
+              var original = URL.createObjectURL.bind(URL);
+              URL.createObjectURL = function(obj){
+                var url = original(obj);
+                if (obj instanceof Blob) blobs.set(url, obj);
+                return url;
+              };
+              function toBase64(buffer){
+                var bytes = new Uint8Array(buffer);
+                var binary = '';
+                var step = 0x8000;
+                for (var i = 0; i < bytes.length; i += step) {
+                  binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
                 }
-            }
-        }
+                return btoa(binary);
+              }
+              document.addEventListener('click', function(event){
+                var anchor = event.target && event.target.closest ? event.target.closest('a[download]') : null;
+                if (!anchor) return;
+                var href = anchor.getAttribute('href') || '';
+                if (href.indexOf('blob:') !== 0) return;
+                var blob = blobs.get(href);
+                if (!blob || !window.SentinelNative) return;
+                event.preventDefault();
+                event.stopPropagation();
+                var name = anchor.getAttribute('download') || 'sentinel-capture';
+                (async function(){
+                  var id = window.SentinelNative.startDownload(name, blob.type || 'application/octet-stream');
+                  var chunk = 192 * 1024;
+                  for (var offset = 0; offset < blob.size; offset += chunk) {
+                    var buffer = await blob.slice(offset, offset + chunk).arrayBuffer();
+                    window.SentinelNative.appendChunk(id, toBase64(buffer));
+                  }
+                  window.SentinelNative.finishDownload(id);
+                })();
+              }, true);
+            })();
+        """
     }
 }

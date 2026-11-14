@@ -291,5 +291,11 @@ class LostDeviceWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 .build()
             WorkManager.getInstance(context).enqueue(request)
         }
+
+        // Signing out of the console means this phone should stop reporting
+        // itself; the schedule is restored the next time a session appears.
+        fun cancelPeriodic(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_PERIODIC_NAME)
+        }
     }
 }

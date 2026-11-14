@@ -41,7 +41,19 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".DashboardActivity" android:exported="false" />
+        <!-- Evidence downloads on Android 9 and older are saved to the app's
+             external files dir and handed to the system share sheet, since
+             writing straight to public Downloads there needs a storage
+             permission this app deliberately doesn't hold. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- WorkManager runs the temporary foreground service that lets the
              background check use the camera. Android 14 refuses
