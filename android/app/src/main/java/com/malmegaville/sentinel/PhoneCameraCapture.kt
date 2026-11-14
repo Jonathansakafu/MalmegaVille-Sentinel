@@ -12,7 +12,6 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
-import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
@@ -97,7 +96,7 @@ object PhoneCameraCapture {
                 val finalTimestamp = AtomicLong(-1L)
 
                 fun release() {
-                    runCatching { if (useTorch) cameraDevice?.setTorchMode(false) }
+                    runCatching { if (useTorch) manager.setTorchMode(cameraId, false) }
                     runCatching { captureSession?.close() }
                     runCatching { cameraDevice?.close() }
                     runCatching { imageReader?.close() }
@@ -117,15 +116,17 @@ object PhoneCameraCapture {
                     val jpegSize = selectJpegSize(manager, cameraId)
                     imageReader = ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 2).apply {
                         setOnImageAvailableListener({ reader ->
-                            val image: Image? = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                            try {
-                                val expected = finalTimestamp.get()
-                                if (expected < 0L || image.timestamp < expected) return@setOnImageAvailableListener
-                                val buffer = image.planes.getOrNull(0)?.buffer
-                                val bytes = buffer?.let { ByteArray(it.remaining()).also(it::get) }
-                                finish(bytes)
-                            } finally {
-                                image.close()
+                            val image = reader.acquireLatestImage()
+                            if (image != null) {
+                                try {
+                                    val expected = finalTimestamp.get()
+                                    if (expected < 0L || image.timestamp < expected) return@setOnImageAvailableListener
+                                    val buffer = image.planes.getOrNull(0)?.buffer
+                                    val bytes = buffer?.let { ByteArray(it.remaining()).also(it::get) }
+                                    finish(bytes)
+                                } finally {
+                                    image.close()
+                                }
                             }
                         }, handler)
                     }
@@ -134,7 +135,7 @@ object PhoneCameraCapture {
                         override fun onOpened(device: CameraDevice) {
                             cameraDevice = device
                             if (useTorch) {
-                                runCatching { device.setTorchMode(true) }
+                                runCatching { manager.setTorchMode(cameraId, true) }
                                     .onFailure { Log.w(TAG, "Could not enable torch for camera $cameraId", it) }
                             }
                             val surface = imageReader?.surface
