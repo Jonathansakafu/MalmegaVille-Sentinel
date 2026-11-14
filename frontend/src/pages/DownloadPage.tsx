@@ -14,6 +14,14 @@ const WINDOWS_INSTALLER_URL =
 // the deployed dashboard - the artifact keeps its product name.
 const ANDROID_APP_URL = '/downloads/MalmegaVille%20Sentinel.apk';
 
+// Identifies the exact artifact behind that link, so a stale install can be
+// told apart from the current one without opening the file.
+const ANDROID_BUILD = {
+  version: 'v1.1-web',
+  size: '7.5 MB',
+  sha: '10559b0a',
+};
+
 function detectPlatform(): 'windows' | 'mac' | 'other' {
   const platform = navigator.userAgent || '';
   if (/Win/i.test(platform)) return 'windows';
@@ -93,7 +101,8 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             <h2 className="mt-5 text-xl font-semibold text-white">Android Companion</h2>
             <p className="mt-2 text-sm text-slate-400">
               Optional — pair a phone to relay SMS alerts through its own SIM, free, no gateway account needed. Not
-              required for core monitoring.
+              required for core monitoring. It runs the same console as this site, so it looks identical to the
+              dashboard.
             </p>
             <a
               href={ANDROID_APP_URL}
@@ -104,6 +113,9 @@ function DownloadPage({ isAuthenticated }: { isAuthenticated: boolean }) {
             </a>
             <p className="mt-3 text-center text-xs text-slate-500">
               You'll need to allow "install unknown apps" for your browser — Android will prompt you the first time.
+            </p>
+            <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-slate-600">
+              Build {ANDROID_BUILD.version} · {ANDROID_BUILD.size} · SHA {ANDROID_BUILD.sha}
             </p>
           </div>
 
