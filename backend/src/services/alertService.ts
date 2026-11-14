@@ -1,4 +1,4 @@
-import { sendAlertEmail, isEmailConfigured } from './emailService.js';
+import { sendAlertEmail, isEmailConfigured, EmailAttachment } from './emailService.js';
 import { sendPushNotification, PushDeliveryResult } from './pushService.js';
 import { sendAlertSms, isSmsConfigured } from './smsService.js';
 import { sendSmsRelayPush, MobileRelayResult } from './mobilePushService.js';
@@ -22,6 +22,12 @@ export interface EventAlertPayload {
   threatScore?: number;
   recommendedAction?: string;
   metadata?: Record<string, unknown>;
+  // Lost-device captures are useless if the alert that announces them
+  // doesn't carry them: the JPEG itself is attached, and these links give
+  // one-click access to the evidence locker / a map instead of requiring
+  // the recipient to hunt through the dashboard.
+  attachments?: EmailAttachment[];
+  links?: { label: string; url: string }[];
 }
 
 // Only used as a fallback - most callers already carry a real threatScore
@@ -116,10 +122,47 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
     };
   }
 
+  const metadata = payload.metadata ?? {};
+  const latitude = typeof metadata.latitude === 'number' ? metadata.latitude : undefined;
+  const longitude = typeof metadata.longitude === 'number' ? metadata.longitude : undefined;
+  const accuracyMeters = typeof metadata.accuracyMeters === 'number' ? metadata.accuracyMeters : undefined;
+  const mapUrl =
+    latitude !== undefined && longitude !== undefined
+      ? `https://www.google.com/maps?q=${latitude},${longitude}`
+      : undefined;
+
   const metadataHtml = payload.metadata
     ? Object.entries(payload.metadata)
+        // Coordinates get their own linked block below rather than being
+        // buried as two unclickable number bullets.
+        .filter(([key]) => key !== 'latitude' && key !== 'longitude')
         .map(([key, value]) => `<li><strong>${key}:</strong> ${String(value)}</li>`)
         .join('')
+    : '';
+
+  const locationHtml = mapUrl
+    ? `<h3>Location</h3>
+      <p style="margin: 4px 0;">
+        ${latitude}, ${longitude}${accuracyMeters !== undefined ? ` (±${Math.round(accuracyMeters)} m)` : ''}<br/>
+        <a href="${mapUrl}">Open this location in Google Maps</a>
+      </p>`
+    : '';
+
+  const attachmentsHtml = payload.attachments?.length
+    ? `<p style="margin-top:16px;"><strong>${
+        payload.attachments.length > 1
+          ? 'Photos captured on the device are attached to this email.'
+          : 'A photo captured on the device is attached to this email.'
+      }</strong></p>`
+    : '';
+
+  const linksHtml = payload.links?.length
+    ? `<div style="margin-top:16px;">${payload.links
+        .map(
+          (link) =>
+            `<p style="margin: 8px 0;"><a href="${link.url}" style="color:#4c9a2a; font-weight:bold;">${link.label}</a></p>`
+        )
+        .join('')}</div>`
     : '';
 
   const htmlLogo = notificationLogoUrl
@@ -140,6 +183,9 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
         ${payload.recommendedAction ? `<li><strong>Recommended Action:</strong> ${payload.recommendedAction}</li>` : ''}
       </ul>
       ${metadataHtml ? `<h3>Metadata</h3><ul>${metadataHtml}</ul>` : ''}
+      ${locationHtml}
+      ${attachmentsHtml}
+      ${linksHtml}
       <div style="margin-top:24px;">
         <a href="${dashboardUrl}" style="display:inline-block; background:#7ed957; color:#050805; font-weight:bold; text-decoration:none; padding:12px 20px; border-radius:12px;">
           Open MalmegaVille Sentinel Dashboard
@@ -152,12 +198,18 @@ export async function notifySecurityEvent(payload: EventAlertPayload): Promise<N
     </div>
   `;
 
-  const text = `MalmegaVille Sentinel Event Notification\n\nDevice Name: ${payload.deviceName}\nEvent Type: ${payload.eventType}\nSeverity: ${safeSeverity}\nTimestamp: ${eventTime.toISOString()}\nDescription: ${payload.description}${payload.threatScore !== undefined ? `\nThreat Score: ${payload.threatScore}` : ''}${payload.recommendedAction ? `\nRecommended Action: ${payload.recommendedAction}` : ''}\n\nOpen your MalmegaVille Sentinel dashboard to review this and other events: ${dashboardUrl}`;
+  const text = `MalmegaVille Sentinel Event Notification\n\nDevice Name: ${payload.deviceName}\nEvent Type: ${payload.eventType}\nSeverity: ${safeSeverity}\nTimestamp: ${eventTime.toISOString()}\nDescription: ${payload.description}${
+    payload.threatScore !== undefined ? `\nThreat Score: ${payload.threatScore}` : ''
+  }${payload.recommendedAction ? `\nRecommended Action: ${payload.recommendedAction}` : ''}${
+    mapUrl ? `\nLocation: ${latitude}, ${longitude}${accuracyMeters !== undefined ? ` (±${Math.round(accuracyMeters)} m)` : ''}\nMap: ${mapUrl}` : ''
+  }${payload.attachments?.length ? '\n\nA photo captured on the device is attached to this email.' : ''}${
+    payload.links?.length ? `\n\n${payload.links.map((link) => `${link.label}: ${link.url}`).join('\n')}` : ''
+  }\n\nOpen your MalmegaVille Sentinel dashboard to review this and other events: ${dashboardUrl}`;
 
   let emailError: string | undefined;
   let emailSent = false;
   try {
-    await sendAlertEmail({ subject, text, html, recipient: alertEmailRecipient });
+    await sendAlertEmail({ subject, text, html, recipient: alertEmailRecipient, attachments: payload.attachments });
     emailSent = true;
   } catch (error) {
     console.error('Email alert failed', error);

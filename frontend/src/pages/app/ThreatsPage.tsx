@@ -167,6 +167,12 @@ function ThreatsPage() {
               const style = severityStyles(incident.severity);
               const device = devices.find((entry) => entry.deviceId === incident.deviceId);
               const score = Math.max(0, Math.min(100, Number(incident.threatScore) || 0));
+              // Lost-device incidents carry the stored capture's id in
+              // details, and location incidents also carry coordinates -
+              // enough to jump straight to the actual evidence instead of
+              // leaving the summary as a dead end.
+              const captureId = typeof incident.details?.captureId === 'string' ? incident.details.captureId : undefined;
+              const evidenceType = typeof incident.details?.latitude === 'number' ? 'location' : 'webcam_photo';
               return (
                 <li
                   key={incident._id ?? `${incident.deviceId}-${incident.createdAt}-${incident.summary}`}
@@ -200,12 +206,22 @@ function ThreatsPage() {
                         <span className="font-mono text-[10px] text-slate-400">score {score}</span>
                       </div>
                     </div>
-                    <Link
-                      to={`/dashboard/devices/${encodeURIComponent(incident.deviceId)}`}
-                      className="flex min-h-[34px] shrink-0 items-center gap-1.5 border border-brand-green/25 px-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green transition hover:bg-brand-green/10"
-                    >
-                      Device <ArrowRight size={11} />
-                    </Link>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      {captureId ? (
+                        <Link
+                          to={`/dashboard/evidence?device=${encodeURIComponent(incident.deviceId)}&type=${evidenceType}`}
+                          className="flex min-h-[34px] items-center gap-1.5 border border-brand-cyan/25 px-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-cyan transition hover:bg-brand-cyan/10"
+                        >
+                          Evidence <ArrowRight size={11} />
+                        </Link>
+                      ) : null}
+                      <Link
+                        to={`/dashboard/devices/${encodeURIComponent(incident.deviceId)}`}
+                        className="flex min-h-[34px] items-center gap-1.5 border border-brand-green/25 px-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-brand-green transition hover:bg-brand-green/10"
+                      >
+                        Device <ArrowRight size={11} />
+                      </Link>
+                    </div>
                   </div>
                 </li>
               );

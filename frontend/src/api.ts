@@ -25,6 +25,7 @@ export type Incident = {
   threatScore: number;
   severity: string;
   summary: string;
+  details?: Record<string, unknown>;
   createdAt: string;
 };
 

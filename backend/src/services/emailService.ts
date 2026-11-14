@@ -1,11 +1,21 @@
 import nodemailer from 'nodemailer';
 import { emailHost, emailPort, emailUser, emailPass, emailFrom, emailSecure, resendApiKey, brevoApiKey } from '../config.js';
 
+export interface EmailAttachment {
+  filename: string;
+  // Base64-encoded file contents - the form all three delivery paths below
+  // (Resend, Brevo, SMTP) accept, so the caller never has to care which
+  // provider this deployment is configured for.
+  content: string;
+  contentType?: string;
+}
+
 interface EmailOptions {
   subject: string;
   text: string;
   html?: string;
   recipient?: string;
+  attachments?: EmailAttachment[];
 }
 
 // Each account supplies its own recipient (configured via the dashboard); there
@@ -31,7 +41,7 @@ function parseFromAddress(from: string): { name?: string; email: string } {
   return { email: from.trim() };
 }
 
-export async function sendAlertEmail({ subject, text, html, recipient }: EmailOptions) {
+export async function sendAlertEmail({ subject, text, html, recipient, attachments }: EmailOptions) {
   const to = recipient;
   if (!isEmailConfigured(to)) {
     return;
@@ -46,7 +56,16 @@ export async function sendAlertEmail({ subject, text, html, recipient }: EmailOp
         Authorization: `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ from: emailFrom, to, subject, html, text })
+      body: JSON.stringify({
+        from: emailFrom,
+        to,
+        subject,
+        html,
+        text,
+        ...(attachments?.length
+          ? { attachments: attachments.map(({ filename, content }) => ({ filename, content })) }
+          : {})
+      })
     });
 
     if (!response.ok) {
@@ -70,7 +89,10 @@ export async function sendAlertEmail({ subject, text, html, recipient }: EmailOp
         to: [{ email: to }],
         subject,
         htmlContent: html,
-        textContent: text
+        textContent: text,
+        ...(attachments?.length
+          ? { attachment: attachments.map(({ filename, content }) => ({ name: filename, content })) }
+          : {})
       })
     });
 
@@ -96,6 +118,16 @@ export async function sendAlertEmail({ subject, text, html, recipient }: EmailOp
     to,
     subject,
     text,
-    html
+    html,
+    ...(attachments?.length
+      ? {
+          attachments: attachments.map(({ filename, content, contentType }) => ({
+            filename,
+            content,
+            encoding: 'base64',
+            contentType
+          }))
+        }
+      : {})
   });
 }

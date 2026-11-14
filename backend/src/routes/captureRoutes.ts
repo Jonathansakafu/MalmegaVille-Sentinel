@@ -16,7 +16,8 @@ import {
   captureMaxFileBytes,
   captureMaxSessionBytes,
   ipGeolocationEnabled,
-  ipGeolocationUrl
+  ipGeolocationUrl,
+  dashboardUrl
 } from '../config.js';
 import { notifySecurityEvent } from '../services/alertService.js';
 import { recordAuditLog } from '../services/auditLogService.js';
@@ -85,6 +86,65 @@ function clientIp(req: any): string {
   return (ip ?? '').replace(/^::ffff:/, '');
 }
 
+// Alert providers cap attachment size (Brevo: 10 MB total, which base64
+// inflates by ~33%), so a photo bigger than this is left on the server and
+// the alert links to it instead of silently failing the whole email.
+const MAX_EMAIL_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+
+interface CaptureAttachment {
+  filename: string;
+  content: string;
+  contentType?: string;
+}
+
+function readCaptureAttachment(capture: any): CaptureAttachment | undefined {
+  if (!capture?.storagePath) return undefined;
+  const absPath = path.join(captureStorageDir, path.basename(String(capture.storagePath)));
+  try {
+    const stats = fs.statSync(absPath);
+    if (stats.size === 0 || stats.size > MAX_EMAIL_ATTACHMENT_BYTES) {
+      return undefined;
+    }
+    return {
+      filename: capture.originalFileName ? String(capture.originalFileName) : 'lost-device-photo.jpg',
+      content: fs.readFileSync(absPath).toString('base64'),
+      contentType: capture.mimeType ? String(capture.mimeType) : 'image/jpeg'
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+// The phone uploads its photo first and its location a moment later, so by
+// the time the location alert is sent the matching photo already exists.
+// Looking it up here lets that one email carry both pieces of evidence
+// instead of a picture alert and a coordinates-only alert arriving
+// separately.
+async function findRecentPhotoCapture(userId: string, deviceId: string, at: Date): Promise<any> {
+  const windowMs = 2 * 60 * 1000;
+  const from = new Date(at.getTime() - windowMs);
+  const to = new Date(at.getTime() + windowMs);
+  if (dblessTestMode) {
+    return listCapturesForUser(userId, { deviceId, captureType: 'webcam_photo' })
+      .filter((capture: any) => !capture.skipped)
+      .find((capture: any) => {
+        const capturedAt = new Date(capture.capturedAtUtc).getTime();
+        return capturedAt >= from.getTime() && capturedAt <= to.getTime();
+      });
+  }
+  return Capture.findOne({
+    userId,
+    deviceId,
+    captureType: 'webcam_photo',
+    skipped: false,
+    capturedAtUtc: { $gte: from, $lte: to }
+  }).sort({ capturedAtUtc: -1 });
+}
+
+function evidenceLockerLink(deviceId: string, type: 'webcam_photo' | 'location'): string {
+  return `${dashboardUrl}/dashboard/evidence?device=${encodeURIComponent(deviceId)}&type=${type}`;
+}
+
 interface IpLocationResult {
   latitude: number;
   longitude: number;
@@ -151,6 +211,8 @@ router.post('/location', agentLimiter, validateBody(locationSchema), async (req,
     : await Capture.create(captureFields);
 
   if (metadata.source !== 'unavailable') {
+    const photoCapture = await findRecentPhotoCapture(userId, deviceId, captureFields.capturedAtUtc);
+    const photoAttachment = photoCapture ? readCaptureAttachment(photoCapture) : undefined;
     notifySecurityEvent({
       userId,
       deviceId,
@@ -158,8 +220,12 @@ router.post('/location', agentLimiter, validateBody(locationSchema), async (req,
       eventType: 'Lost Device Location Captured',
       timestampUtc: new Date(),
       severity: 'High',
-      description: `An approximate location (${metadata.source === 'wifi' ? 'Wi-Fi' : 'IP-based'}) was captured on a device flagged lost.`,
-      metadata: { captureId: dblessTestMode ? (capture as any).id : (capture as any)._id.toString(), ...metadata }
+      description: `An approximate location (${metadata.source === 'wifi' ? 'Wi-Fi' : 'IP-based'}) was captured on a device flagged lost.${
+        photoAttachment ? ' A photo from the same check-in is attached.' : ''
+      }`,
+      metadata: { captureId: dblessTestMode ? (capture as any).id : (capture as any)._id.toString(), ...metadata },
+      attachments: photoAttachment ? [photoAttachment] : undefined,
+      links: [{ label: 'Open the evidence locker', url: evidenceLockerLink(deviceId, 'location') }]
     }).catch((error) => console.error('Capture notification failed', error));
   }
 
@@ -204,6 +270,7 @@ router.post('/photo', agentLimiter, uploadPhoto.single('photo'), async (req, res
     ? addInMemoryCapture(captureFields)
     : await Capture.create(captureFields);
 
+  const photoAttachment = readCaptureAttachment(capture);
   notifySecurityEvent({
     userId,
     deviceId,
@@ -211,8 +278,12 @@ router.post('/photo', agentLimiter, uploadPhoto.single('photo'), async (req, res
     eventType: 'Lost Device Photo Captured',
     timestampUtc: new Date(),
     severity: 'High',
-    description: `A webcam photo was captured on a device flagged lost (trigger: ${triggerEvent ?? 'unknown'}).`,
-    metadata: { captureId: dblessTestMode ? (capture as any).id : (capture as any)._id.toString() }
+    description: `A webcam photo was captured on a device flagged lost (trigger: ${triggerEvent ?? 'unknown'}).${
+      photoAttachment ? ' The photo is attached to this email.' : ''
+    }`,
+    metadata: { captureId: dblessTestMode ? (capture as any).id : (capture as any)._id.toString() },
+    attachments: photoAttachment ? [photoAttachment] : undefined,
+    links: [{ label: 'Open the photo in the evidence locker', url: evidenceLockerLink(deviceId, 'webcam_photo') }]
   }).catch((error) => console.error('Capture notification failed', error));
 
   res.status(201).json(capture);
