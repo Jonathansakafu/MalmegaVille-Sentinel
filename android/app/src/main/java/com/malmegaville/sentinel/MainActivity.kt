@@ -4,15 +4,15 @@ import android.Manifest
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -35,10 +35,9 @@ import java.io.IOException
 
 // This is the only place the account's credentials ever get used; once
 // signed in, the app relays SMS in the background with no further UI
-// interaction needed - see SentinelFirebaseMessagingService. Styling
-// mirrors the web dashboard's AuthCard (frontend/src/components/AuthCard.tsx)
-// and its brand palette (frontend/tailwind.config.ts) so this reads as the
-// same product, not a bare utility screen.
+// interaction needed - see SentinelFirebaseMessagingService. Styled as the
+// AuthCard.tsx "SECURE ACCESS" panel so the phone opens inside the exact same
+// console the web dashboard and the Windows agent run in.
 class MainActivity : AppCompatActivity() {
 
     private val httpClient = OkHttpClient()
@@ -80,122 +79,182 @@ class MainActivity : AppCompatActivity() {
         restoreSession()
     }
 
-    private fun buildUi(): ScrollView {
-        val density = resources.displayMetrics.density
-        fun dp(value: Int) = (value * density).toInt()
+    private fun buildUi(): View {
+        fun dp(value: Int) = Ui.dp(this, value)
+        val green = Ui.color(this, R.color.brand_green)
 
-        val outer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.brand_dark))
-            setPadding(dp(24), dp(48), dp(24), dp(48))
+        val root = FrameLayout(this).apply {
+            background = HudBackdropDrawable(this@MainActivity)
         }
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        root.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
+        // Centering host: a ScrollView child only gets a viewport height with
+        // fillViewport, so the card sits optically centred on tall phones and
+        // still scrolls on short ones.
+        val host = FrameLayout(this)
+        scroll.addView(host, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_card)
-            setPadding(dp(28), dp(32), dp(28), dp(28))
+            background = Ui.panelDrawable(this@MainActivity)
+            setPadding(dp(22), dp(24), dp(22), dp(22))
         }
+        host.addView(
+            card,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER
+                leftMargin = dp(16)
+                rightMargin = dp(16)
+                topMargin = dp(24)
+                bottomMargin = dp(24)
+            }
+        )
 
-        card.addView(
+        // Brand crest in a neon-bordered tile, matching AuthCard.tsx.
+        val logoBox = FrameLayout(this).apply {
+            background = HoloDrawable(
+                fillColor = Ui.withAlpha(green, 0x1A),
+                strokeColor = Ui.withAlpha(green, 0x80),
+                accentColor = green,
+                cutPx = 0f,
+                strokePx = 1f,
+                bracketOffsetPx = 0f,
+                showBrackets = false
+            )
+            layoutParams = LinearLayout.LayoutParams(dp(58), dp(58)).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        }
+        logoBox.addView(
             ImageView(this).apply {
                 setImageResource(R.drawable.logo)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(dp(88), dp(88)).apply {
-                    gravity = Gravity.CENTER_HORIZONTAL
-                    bottomMargin = dp(16)
-                }
-            }
-        )
-
-        card.addView(
-            TextView(this).apply {
-                text = "MalmegaVille Sentinel"
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-                textSize = 20f
-                setTypeface(typeface, Typeface.BOLD)
-                gravity = Gravity.CENTER
-            }
-        )
-
-        card.addView(
-            TextView(this).apply {
-                text = "Sign in to pair this phone. It will relay SMS alerts for a lost/stolen " +
-                    "device in the background - nothing else to do here afterward."
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_muted))
-                textSize = 14f
-                gravity = Gravity.CENTER
-                setPadding(0, dp(8), 0, dp(24))
-            }
-        )
-
-        emailInput = styledInput("Email", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
-        card.addView(emailInput, formFieldParams(::dp))
-
-        passwordInput = styledInput("Password", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        card.addView(passwordInput, formFieldParams(::dp))
-
-        card.addView(
-            Button(this).apply {
-                text = "Sign In & Pair This Phone"
-                isAllCaps = false
-                setTextColor(Color.BLACK)
-                setTypeface(typeface, Typeface.BOLD)
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_button_green)
-                setOnClickListener {
-                    SentinelSound.click(this@MainActivity)
-                    signInAndPair()
-                }
+                setPadding(dp(8), dp(8), dp(8), dp(8))
             },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
-                topMargin = dp(4)
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        card.addView(logoBox)
+
+        card.addView(Ui.spacer(this, 12))
+        card.addView(
+            Ui.monoText(this, "MALMEGAVILLE SENTINEL", 8.5f, Ui.withAlpha(green, 0xCC)).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = 0.32f
             }
         )
+        card.addView(
+            Ui.monoValue(this, "SECURE ACCESS", 20f).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = 0.16f
+                setPadding(0, dp(6), 0, 0)
+            }
+        )
+        card.addView(
+            Ui.monoText(this, "AUTHORIZED PERSONNEL ONLY", 8.5f, Ui.color(this@MainActivity, R.color.text_hint)).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = 0.2f
+                setPadding(0, dp(6), 0, 0)
+            }
+        )
+
+        card.addView(Ui.spacer(this, 16))
+        card.addView(Ui.divider(this))
+        card.addView(Ui.spacer(this, 16))
+
+        card.addView(Ui.hudLabel(this, "Operator email"))
+        emailInput = styledInput("operator@domain", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+        card.addView(emailInput, fieldParams(::dp, top = 6, bottom = 14))
+
+        card.addView(Ui.hudLabel(this, "Passphrase"))
+        passwordInput = styledInput("••••••••", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        card.addView(passwordInput, fieldParams(::dp, top = 6, bottom = 14))
 
         statusText = TextView(this).apply {
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_muted))
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, 0)
+            typeface = Ui.mono(this@MainActivity, 400)
+            textSize = 9.5f
+            letterSpacing = 0.06f
+            setLineSpacing(0f, 1.2f)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            visibility = View.GONE
         }
-        card.addView(statusText)
+        card.addView(statusText, fieldParams(::dp, top = 0, bottom = 12))
 
-        outer.addView(
-            card,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        card.addView(
+            Ui.primaryButton(this, "JACK IN") { signInAndPair() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
+                topMargin = dp(2)
+            }
         )
 
-        return ScrollView(this).apply { addView(outer) }
-    }
-
-    private fun styledInput(hintText: String, type: Int): EditText = EditText(this).apply {
-        hint = hintText
-        inputType = type
-        setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_hint))
-        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-        background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_input)
-        addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (count != before) SentinelSound.key(this@MainActivity)
+        card.addView(Ui.spacer(this, 16))
+        card.addView(Ui.divider(this))
+        card.addView(Ui.spacer(this, 12))
+        card.addView(
+            Ui.monoText(this, "TLS CHANNEL · CREDENTIALS NEVER LEAVE THE VAULT", 7.5f, Ui.color(this@MainActivity, R.color.text_hint)).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = 0.16f
             }
-            override fun afterTextChanged(s: android.text.Editable?) = Unit
-        })
+        )
+
+        // Same chassis as the signed-in console: frame brackets + slow scan band.
+        root.addView(
+            View(this).apply {
+                background = ConsoleFrameDrawable(this@MainActivity)
+                isClickable = false
+                isFocusable = false
+            },
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        root.addView(
+            ScanlineView(this),
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+
+        return root
     }
 
-    private fun formFieldParams(dp: (Int) -> Int) =
+    private fun styledInput(hintText: String, type: Int): EditText =
+        Ui.textInput(this, hintText, type).apply {
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (count != before) SentinelSound.key(this@MainActivity)
+                }
+                override fun afterTextChanged(s: android.text.Editable?) = Unit
+            })
+        }
+
+    private fun fieldParams(dp: (Int) -> Int, top: Int, bottom: Int) =
         LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            bottomMargin = dp(14)
+            topMargin = dp(top)
+            bottomMargin = dp(bottom)
         }
 
     private fun setStatus(message: String, tone: StatusTone = StatusTone.MUTED) {
-        val colorRes = when (tone) {
-            StatusTone.MUTED -> R.color.text_muted
-            StatusTone.SUCCESS -> R.color.brand_green
-            StatusTone.ERROR -> R.color.status_error
+        if (message.isBlank()) {
+            statusText.visibility = View.GONE
+            return
         }
-        statusText.text = message
-        statusText.setTextColor(ContextCompat.getColor(this, colorRes))
+        val colorInt = when (tone) {
+            StatusTone.MUTED -> Ui.color(this, R.color.hud_label)
+            StatusTone.SUCCESS -> Ui.color(this, R.color.brand_green)
+            StatusTone.ERROR -> Ui.color(this, R.color.status_error)
+        }
+        statusText.text = message.uppercase()
+        statusText.setTextColor(colorInt)
+        statusText.background = HoloDrawable(
+            fillColor = Ui.withAlpha(colorInt, if (tone == StatusTone.MUTED) 0x0F else 0x1A),
+            strokeColor = Ui.withAlpha(colorInt, if (tone == StatusTone.MUTED) 0x33 else 0x66),
+            accentColor = colorInt,
+            cutPx = 0f,
+            strokePx = 1f,
+            bracketOffsetPx = 0f,
+            showBrackets = false
+        )
+        statusText.visibility = View.VISIBLE
     }
 
     private enum class StatusTone { MUTED, SUCCESS, ERROR }
@@ -226,7 +285,6 @@ class MainActivity : AppCompatActivity() {
     private fun restoreSession() {
         val token = prefs.getString(SentinelPrefs.KEY_AUTH_TOKEN, null)
         if (token == null) {
-            setStatus("Not signed in.")
             return
         }
         // Already signed in - go straight to the dashboard, same as any app
@@ -241,11 +299,11 @@ class MainActivity : AppCompatActivity() {
         val email = emailInput.text.toString().trim()
         val password = passwordInput.text.toString()
         if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Enter your email and password.", Toast.LENGTH_SHORT).show()
+            setStatus("Enter your email and passphrase.", StatusTone.ERROR)
             return
         }
 
-        setStatus("Authenticating...")
+        setStatus("Verifying credentials…")
         SentinelSound.boot(this)
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -258,7 +316,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 SentinelSound.deny(this@MainActivity)
                 SentinelCinematic.show(this@MainActivity, granted = false)
-                setStatus("Sign-in failed: ${e.message}", StatusTone.ERROR)
+                setStatus("Access denied · ${e.message}", StatusTone.ERROR)
             }
         }
     }

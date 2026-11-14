@@ -1,123 +1,476 @@
 <Window x:Class="MalmegaVille.Sentinel.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MalmegaVille Sentinel" Height="640" Width="960"
-        MinHeight="560" MinWidth="820"
-        Background="{StaticResource BackgroundBrush}"
+        xmlns:controls="clr-namespace:MalmegaVille.Sentinel.Desktop.Controls"
+        Title="MalmegaVille Sentinel" Height="860" Width="1280"
+        MinHeight="680" MinWidth="1060"
+        WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Assets/app.ico">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Window.Background>
+        <DrawingBrush TileMode="Tile" Viewport="0,0,42,42" ViewportUnits="Absolute">
+            <DrawingBrush.Drawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#0D00FF88" Thickness="1" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <LineGeometry StartPoint="0,0" EndPoint="42,0" />
+                            <LineGeometry StartPoint="0,0" EndPoint="0,42" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+    </Window.Background>
 
-        <!-- Header -->
-        <Grid Margin="0,0,0,20">
+    <Grid>
+        <!-- Ambient neon bloom, matching the web body's two radial glows -->
+        <Rectangle IsHitTestVisible="False">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.75" RadiusY="0.45">
+                    <GradientStop Color="#1A00FF88" Offset="0" />
+                    <GradientStop Color="#0000FF88" Offset="1" />
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="620" Height="520">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="1,1" GradientOrigin="1,1" RadiusX="0.7" RadiusY="0.7">
+                    <GradientStop Color="#1400D9FF" Offset="0" />
+                    <GradientStop Color="#0000D9FF" Offset="1" />
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <Grid>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="252" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Margin="0,0,14,0">
-                    <Image Source="pack://application:,,,/Assets/logo.jpeg" Width="56" Height="56" Stretch="UniformToFill">
-                        <Image.Clip>
-                            <RectangleGeometry Rect="0,0,56,56" RadiusX="14" RadiusY="14" />
-                        </Image.Clip>
-                    </Image>
+
+            <!-- ===================== SIDEBAR ===================== -->
+            <Border Grid.Column="0" Background="#B3030605" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Padding="16,20,16,18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="44" Height="44" Background="#1400FF88" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Margin="0,0,12,0">
+                            <Image Source="pack://application:,,,/Assets/logo.jpeg" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="MALMEGAVILLE" FontSize="13" FontWeight="Bold" />
+                            <TextBlock Text="SENTINEL" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="1" Height="1" Background="{StaticResource PanelBorderBrush}" Margin="0,0,0,16" />
+
+                    <StackPanel Grid.Row="2">
+                        <RadioButton x:Name="NavDashboard" GroupName="Nav" Style="{StaticResource NavItem}" IsChecked="True" Tag="dashboard" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                <TextBlock Text="DASHBOARD" FontFamily="{StaticResource MonoFont}" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavCaptures" GroupName="Nav" Style="{StaticResource NavItem}" Tag="captures" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                <TextBlock Text="CAPTURES" FontFamily="{StaticResource MonoFont}" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavSettings" GroupName="Nav" Style="{StaticResource NavItem}" Tag="settings" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                <TextBlock Text="SETTINGS" FontFamily="{StaticResource MonoFont}" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+
+                    <controls:HoloPanel Grid.Row="3" Margin="0,16,0,0" Padding="12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xEA18;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource BrandGreenBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="SYSTEM PROTECTED" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock x:Name="SidebarStatusText" Text="agent armed · awaiting telemetry" Style="{StaticResource MonoHint}" Margin="0,5,0,0" />
+                            <Button Content="OPEN WEB CONSOLE" Click="OpenWebConsole_Click" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0" FontSize="9" Padding="10,7" />
+                        </StackPanel>
+                    </controls:HoloPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===================== MAIN ===================== -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Command bar -->
+                <Border Grid.Row="0" Background="#99030605" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,0,1" Padding="22,11">
+                    <Grid>
+                        <TextBlock Text="PROTECT. DETECT. RESPOND." Style="{StaticResource HudLabel}" VerticalAlignment="Center" Foreground="#B300FF88" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock x:Name="TopClockText" Text="--:--:--" Style="{StaticResource MonoHint}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                            <Button x:Name="OperatorButton" Click="OperatorButton_Click" Style="{StaticResource SecondaryButton}" Padding="10,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="22" Height="22" Background="{StaticResource BrandGreenBrush}" Margin="0,0,8,0">
+                                        <TextBlock x:Name="OperatorInitialText" Text="S" Foreground="#050805" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock x:Name="OperatorNameText" Text="security operator" FontSize="12" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="9" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <Popup x:Name="OperatorPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-190">
+                            <Border Width="250" Background="{StaticResource InkBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Padding="14">
+                                <StackPanel>
+                                    <TextBlock Text="SIGNED IN AS" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="OperatorEmailText" Text="Not signed in." FontSize="12" Margin="0,6,0,12" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                    <Button x:Name="SignInButton" Content="SIGN IN" Click="SignIn_Click" Style="{StaticResource PrimaryButton}" />
+                                    <Button x:Name="SignOutButton" Content="SIGN OUT" Click="SignOut_Click" Style="{StaticResource DangerButton}" Margin="0,8,0,0" Visibility="Collapsed" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
                 </Border>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="MalmegaVille Sentinel" FontSize="22" FontWeight="Bold" />
-                    <TextBlock Text="Endpoint security agent" Style="{StaticResource HintText}" Margin="0,2,0,0" />
-                    <TextBlock Text="// PROTECT · DETECT · RESPOND" Foreground="{StaticResource BrandGreenBrush}" FontSize="10" Margin="0,4,0,0" />
-                </StackPanel>
-            </StackPanel>
-            <Button Grid.Column="1" Content="Open Dashboard" MinWidth="150" VerticalAlignment="Center"
-                    Click="OpenDashboard_Click" Style="{StaticResource PrimaryButton}" />
+
+                <!-- ============ DASHBOARD ============ -->
+                <ScrollViewer x:Name="DashboardView" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="22,20,22,22">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="COMMAND CENTER" Style="{StaticResource HudLabel}" />
+                                <TextBlock Text="Security overview" FontSize="26" FontWeight="Bold" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                                <Border BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Background="#1400FF88" Padding="10,5" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="6" Height="6" Fill="{StaticResource BrandGreenBrush}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                        <TextBlock Text="SYSTEM ONLINE" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Content="REFRESH" Click="RefreshDashboard_Click" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" />
+                            </StackPanel>
+                        </Grid>
+
+                        <UniformGrid Columns="4" Margin="-6,0,-6,2">
+                            <controls:HoloPanel Margin="6" Padding="15">
+                                <StackPanel>
+                                    <TextBlock Text="TOTAL DEVICES" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="DevicesValueText" Text="—" Style="{StaticResource MonoValue}" Margin="0,6,0,2" />
+                                    <TextBlock x:Name="DevicesHintText" Text="no telemetry yet" Style="{StaticResource MonoHint}" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                            <controls:HoloPanel Margin="6" Padding="15" Accent="{StaticResource CyanBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="ONLINE DEVICES" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="OnlineValueText" Text="—" Style="{StaticResource MonoValue}" Margin="0,6,0,2" Foreground="{StaticResource CyanBrush}" />
+                                    <TextBlock x:Name="OnlineHintText" Text="awaiting check-ins" Style="{StaticResource MonoHint}" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                            <controls:HoloPanel Margin="6" Padding="15" Accent="{StaticResource RoseBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="OFFLINE DEVICES" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="OfflineValueText" Text="—" Style="{StaticResource MonoValue}" Margin="0,6,0,2" />
+                                    <TextBlock x:Name="OfflineHintText" Text="—" Style="{StaticResource MonoHint}" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                            <controls:HoloPanel Margin="6" Padding="15" Accent="{StaticResource RoseBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="THREATS DETECTED" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="ThreatsValueText" Text="—" Style="{StaticResource MonoValue}" Margin="0,6,0,2" Foreground="{StaticResource RoseBrush}" />
+                                    <TextBlock x:Name="ThreatsHintText" Text="0 critical" Style="{StaticResource MonoHint}" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                        </UniformGrid>
+
+                        <Grid Margin="0,2,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*" />
+                                <ColumnDefinition Width="2*" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:HoloPanel Grid.Column="0" Margin="0,0,12,14">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <TextBlock Text="THREAT ACTIVITY" Style="{StaticResource SectionHeading}" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Ellipse Width="5" Height="5" Fill="{StaticResource BrandGreenBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="LIVE" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <ItemsControl x:Name="IncidentsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#CC040D08" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,0,6">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Summary}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,90,0" />
+                                                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" BorderBrush="{Binding SeverityBrush}" BorderThickness="1" Padding="6,2">
+                                                                <TextBlock Text="{Binding Severity}" Foreground="{Binding SeverityBrush}" FontFamily="{StaticResource MonoFont}" FontSize="9" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Meta}" Style="{StaticResource MonoHint}" Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="IncidentsEmptyText" Text="No incidents recorded. Nothing has been flagged on your devices yet." Style="{StaticResource HintText}" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+
+                            <controls:HoloPanel Grid.Column="1">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <TextBlock Text="DEVICE AGENTS" Style="{StaticResource SectionHeading}" />
+                                        <TextBlock Text="{Binding ElementName=DevicesValueText, Path=Text}" Style="{StaticResource HudLabel}" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <ItemsControl x:Name="DevicesList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#CC040D08" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,76,0" />
+                                                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" BorderBrush="{Binding StatusBrush}" BorderThickness="1" Padding="6,2">
+                                                                <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontFamily="{StaticResource MonoFont}" FontSize="9" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Os}" Style="{StaticResource MonoHint}" Margin="0,4,0,0" />
+                                                        <TextBlock Text="{Binding LastSeenLabel}" Style="{StaticResource MonoHint}" Margin="0,2,0,0" />
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <Button Content="{Binding LostActionLabel}" Foreground="{Binding LostActionBrush}" Command="{Binding DataContext.ToggleLostCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="9,6" Margin="0,0,8,0" />
+                                                            <Button Content="REMOVE" Command="{Binding DataContext.RemoveDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource DangerButton}" FontSize="9" Padding="9,6" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="DevicesEmptyText" Text="No agents registered. Register this PC below or pair a phone to see it here." Style="{StaticResource HintText}" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                        </Grid>
+
+                        <controls:HoloPanel>
+                            <StackPanel>
+                                <TextBlock Text="AGENT TELEMETRY" Style="{StaticResource SectionHeading}" Margin="0,0,0,10" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                        <TextBlock Text="THIS DEVICE" Style="{StaticResource HudLabel}" Margin="0,0,0,6" />
+                                        <TextBlock Text="Registers this PC to your account so it appears in Device Inventory." Style="{StaticResource HintText}" Margin="0,0,0,10" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button x:Name="RegisterDeviceButton" Content="REGISTER THIS PC" Click="RegisterDevice_Click" Style="{StaticResource PrimaryButton}" FontSize="9" Padding="12,8" />
+                                            <TextBlock x:Name="DeviceStatusText" Style="{StaticResource MonoHint}" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="EVENT QUEUE" Style="{StaticResource HudLabel}" Margin="0,0,0,6" />
+                                        <TextBlock Text="Force an immediate sync of queued security events with the dashboard." Style="{StaticResource HintText}" Margin="0,0,0,10" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="SYNC NOW" Click="SyncNow_Click" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" />
+                                            <Button Content="REFRESH QUEUE" Click="RefreshQueue_Click" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" Margin="8,0,0,0" />
+                                            <TextBlock x:Name="QueueStatusText" Style="{StaticResource MonoHint}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                                <ListBox x:Name="QueuedEventsList" MaxHeight="150" Margin="0,12,0,0" />
+                            </StackPanel>
+                        </controls:HoloPanel>
+
+                        <TextBlock x:Name="DashboardStatusText" Style="{StaticResource MonoHint}" Margin="2,0,0,0" Foreground="{StaticResource FaintTextBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ============ CAPTURES ============ -->
+                <ScrollViewer x:Name="CapturesView" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" Padding="22,20,22,22">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="EVIDENCE LOCKER" Style="{StaticResource HudLabel}" />
+                                <TextBlock Text="Captured evidence" FontSize="26" FontWeight="Bold" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <Button Content="REFRESH" Click="RefreshCaptures_Click" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                        </Grid>
+
+                        <controls:HoloPanel>
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="PHOTOS" Style="{StaticResource SectionHeading}" />
+                                    <TextBlock Text="captured by the agent camera" Style="{StaticResource HudLabel}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <WrapPanel x:Name="PhotosPanel" />
+                                <TextBlock x:Name="PhotosEmptyText" Text="No photo captures yet." Style="{StaticResource HintText}" />
+                            </StackPanel>
+                        </controls:HoloPanel>
+
+                        <controls:HoloPanel>
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="LOCATIONS" Style="{StaticResource SectionHeading}" />
+                                    <TextBlock Text="last known fixes" Style="{StaticResource HudLabel}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <StackPanel x:Name="LocationsPanel" />
+                                <TextBlock x:Name="LocationsEmptyText" Text="No location captures yet." Style="{StaticResource HintText}" />
+                            </StackPanel>
+                        </controls:HoloPanel>
+
+                        <controls:HoloPanel>
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="USB FILES" Style="{StaticResource SectionHeading}" />
+                                    <TextBlock Text="copied from removable drives" Style="{StaticResource HudLabel}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <StackPanel x:Name="UsbPanel" />
+                                <TextBlock x:Name="UsbEmptyText" Text="No USB captures yet." Style="{StaticResource HintText}" />
+                            </StackPanel>
+                        </controls:HoloPanel>
+
+                        <TextBlock x:Name="CapturesStatusText" Style="{StaticResource MonoHint}" Margin="2,0,0,0" Foreground="{StaticResource FaintTextBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ============ SETTINGS ============ -->
+                <ScrollViewer x:Name="SettingsView" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" Padding="22,20,22,22">
+                    <StackPanel MaxWidth="980" HorizontalAlignment="Left">
+                        <StackPanel Margin="0,0,0,14">
+                            <TextBlock Text="CONFIGURATION" Style="{StaticResource HudLabel}" />
+                            <TextBlock Text="Settings" FontSize="26" FontWeight="Bold" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:HoloPanel Grid.Column="0" Margin="0,0,12,14">
+                                <StackPanel>
+                                    <TextBlock Text="ACCOUNT" Style="{StaticResource SectionHeading}" Margin="0,0,0,10" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse x:Name="AccountStatusDot" Width="9" Height="9" Fill="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="AccountStatusText" Text="Not signed in." Margin="9,0,0,0" VerticalAlignment="Center" FontSize="12" />
+                                    </StackPanel>
+                                    <TextBlock Text="Use the same account as the web dashboard. Signing in lets the agent register this PC and pull live telemetry." Style="{StaticResource HintText}" Margin="0,12,0,0" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+
+                            <controls:HoloPanel Grid.Column="1">
+                                <StackPanel>
+                                    <TextBlock Text="AGENT IDENTITY" Style="{StaticResource SectionHeading}" Margin="0,0,0,10" />
+                                    <TextBlock Text="DEVICE ID" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="AgentDeviceIdText" Text="—" FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,3,0,10" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="MACHINE" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="AgentMachineText" Text="—" FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,3,0,10" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="CORE SERVICE" Style="{StaticResource HudLabel}" />
+                                    <TextBlock x:Name="AgentServiceText" Text="running · encrypting local events" FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="{StaticResource BrandGreenBrush}" />
+                                </StackPanel>
+                            </controls:HoloPanel>
+                        </Grid>
+
+                        <controls:HoloPanel>
+                            <StackPanel>
+                                <TextBlock Text="NOTIFICATION EMAIL" Style="{StaticResource SectionHeading}" />
+                                <TextBlock Text="Security alerts (logins, USB activity, lost-device captures) are sent to this address." Style="{StaticResource HintText}" Margin="0,4,0,16" />
+                                <TextBlock Text="ALERT EMAIL ADDRESS" Style="{StaticResource FieldLabel}" />
+                                <TextBox x:Name="AlertEmailTextBox" Margin="0,0,0,12" IsEnabled="False" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="SaveSettingsButton" Content="SAVE SETTINGS" Click="SaveSettings_Click" IsEnabled="False" Style="{StaticResource PrimaryButton}" FontSize="9" Padding="12,8" />
+                                    <Button x:Name="SendTestAlertButton" Content="SEND TEST ALERT" Click="SendTestAlert_Click" IsEnabled="False" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" Margin="8,0,0,0" />
+                                </StackPanel>
+                                <TextBlock x:Name="SettingsStatusText" Style="{StaticResource MonoHint}" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </controls:HoloPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Status ticker -->
+                <Border Grid.Row="2" Background="#EE020705" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Padding="14,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal">
+                            <Polyline Points="0,6 3,3 6,8 9,2 12,9 15,4 18,7 21,3 24,6" Stroke="{StaticResource BrandGreenBrush}" StrokeThickness="1" Width="28" Height="12" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="MALMEGAVILLE SENTINEL" Style="{StaticResource HudLabel}" VerticalAlignment="Center" Foreground="#B303FF88" />
+                        </StackPanel>
+                        <TextBlock x:Name="TickerText" Grid.Column="1" Margin="18,0" Style="{StaticResource MonoHint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="TickerClockText" Grid.Column="2" Style="{StaticResource MonoHint}" VerticalAlignment="Center" Foreground="{StaticResource FaintTextBrush}" />
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
 
-        <TabControl x:Name="MainTabs" Grid.Row="1">
-            <TabItem Header="Dashboard">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">
+        <!-- Full-window console frame, purely decorative -->
+        <Grid IsHitTestVisible="False" Panel.ZIndex="40">
+            <Border BorderBrush="#3300FF88" BorderThickness="1" Margin="2" />
+            <Border BorderBrush="#0F00FF88" BorderThickness="1" Margin="6" />
+            <Border Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2" BorderBrush="{StaticResource BrandGreenBrush}" BorderThickness="2,2,0,0" />
+            <Border Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" BorderBrush="{StaticResource BrandGreenBrush}" BorderThickness="0,2,2,0" />
+            <Border Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="2" BorderBrush="{StaticResource BrandGreenBrush}" BorderThickness="2,0,0,2" />
+            <Border Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="2" BorderBrush="{StaticResource BrandGreenBrush}" BorderThickness="0,0,2,2" />
+            <Rectangle Height="280" VerticalAlignment="Top" Opacity="0.5">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#0000FF88" Offset="0" />
+                        <GradientStop Color="#0F00FF88" Offset="0.5" />
+                        <GradientStop Color="#0000FF88" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+                <Rectangle.RenderTransform>
+                    <TranslateTransform x:Name="ScanTransform" Y="-300" />
+                </Rectangle.RenderTransform>
+                <Rectangle.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever">
+                                <DoubleAnimation Storyboard.TargetName="ScanTransform" Storyboard.TargetProperty="Y" From="-300" To="900" Duration="0:0:11" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </Rectangle.Triggers>
+            </Rectangle>
+        </Grid>
+
+        <!-- Photo viewer overlay -->
+        <Grid x:Name="PhotoOverlay" Visibility="Collapsed" Background="#D9000000" Panel.ZIndex="60">
+            <Border Width="760" MaxHeight="700" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource InkBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Padding="18">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock x:Name="OverlayTitleText" Text="CAPTURE" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" VerticalAlignment="Center" />
+                        <Button Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="CloseOverlay_Click" Style="{StaticResource IconButton}" HorizontalAlignment="Right" />
+                    </Grid>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <Button x:Name="OverlayDeleteButton" Content="DELETE CAPTURE" Click="DeleteOverlayCapture_Click" Style="{StaticResource DangerButton}" FontSize="9" Padding="12,8" Margin="0,0,8,0" />
+                        <Button Content="CLOSE" Click="CloseOverlay_Click" Style="{StaticResource SecondaryButton}" FontSize="9" Padding="12,8" />
+                    </StackPanel>
                     <StackPanel>
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="Operator dashboard" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Device inventory, the threat feed, evidence captures, and lost-device controls live in the web console. This agent only reports on this PC." Style="{StaticResource HintText}" Margin="0,0,0,14" TextWrapping="Wrap" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Open Dashboard" MinWidth="150" Click="OpenDashboard_Click" Style="{StaticResource PrimaryButton}" />
-                                    <TextBlock x:Name="DashboardStatusText" VerticalAlignment="Center" Margin="14,0,0,0" Style="{StaticResource HintText}" MaxWidth="420" TextWrapping="Wrap" />
-                                </StackPanel>
-                            </StackPanel>
+                        <Border Background="#000000" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1">
+                            <Image x:Name="OverlayImage" Stretch="Uniform" MaxHeight="480" />
                         </Border>
-
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="Sync" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Force an immediate sync of queued security events with the dashboard." Style="{StaticResource HintText}" Margin="0,0,0,14" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Sync Now" Width="130" Click="SyncNow_Click" Style="{StaticResource PrimaryButton}" />
-                                    <Button Content="Refresh Queue" Width="130" Margin="10,0,0,0" Click="RefreshQueue_Click" Style="{StaticResource SecondaryButton}" />
-                                    <TextBlock x:Name="QueueStatusText" VerticalAlignment="Center" Margin="14,0,0,0" Style="{StaticResource HintText}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="This device" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Registers this PC to your account so it appears in Device Inventory on the dashboard." Style="{StaticResource HintText}" Margin="0,0,0,14" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="RegisterDeviceButton" Content="Register This PC" Width="150" Click="RegisterDevice_Click" Style="{StaticResource PrimaryButton}" />
-                                    <TextBlock x:Name="DeviceStatusText" VerticalAlignment="Center" Margin="14,0,0,0" Style="{StaticResource HintText}" MaxWidth="420" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <TextBlock Text="Queued Events" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Security events captured locally, pending or already synced to the dashboard." Style="{StaticResource HintText}" Margin="0,0,0,14" />
-                                <ListBox x:Name="QueuedEventsList" MaxHeight="260" ScrollViewer.CanContentScroll="False" />
-                            </StackPanel>
-                        </Border>
+                        <TextBlock x:Name="OverlayMetaText" Style="{StaticResource MonoHint}" Margin="0,10,0,0" />
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Notification Settings">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">
-                    <StackPanel MaxWidth="520" HorizontalAlignment="Left">
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="Account" Style="{StaticResource SectionHeading}" />
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Ellipse x:Name="AccountStatusDot" Width="10" Height="10" Fill="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="AccountStatusText" VerticalAlignment="Center" Margin="10,0,0,0" Text="Not signed in." FontWeight="SemiBold" />
-                                    <Button x:Name="SignInButton" Content="Sign In" Width="96" Margin="16,0,0,0" Click="SignIn_Click" Style="{StaticResource PrimaryButton}" />
-                                    <Button x:Name="SignOutButton" Content="Sign Out" Width="96" Margin="10,0,0,0" Click="SignOut_Click" Visibility="Collapsed" Style="{StaticResource DangerButton}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <TextBlock Text="Notification Email" Style="{StaticResource SectionHeading}" />
-                                <TextBlock Text="Security alerts (logins, USB activity, lost-device captures) are sent to this address." Style="{StaticResource HintText}" Margin="0,0,0,18" />
-
-                                <TextBlock Text="Alert email address" Style="{StaticResource FieldLabel}" />
-                                <TextBox x:Name="AlertEmailTextBox" Margin="0,0,0,16" IsEnabled="False" />
-
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                    <Button x:Name="SaveSettingsButton" Content="Save Settings" Width="130" Click="SaveSettings_Click" IsEnabled="False" Style="{StaticResource PrimaryButton}" />
-                                    <Button x:Name="SendTestAlertButton" Content="Send Test Alert" Width="140" Margin="10,0,0,0" Click="SendTestAlert_Click" IsEnabled="False" Style="{StaticResource SecondaryButton}" />
-                                </StackPanel>
-
-                                <TextBlock x:Name="SettingsStatusText" Style="{StaticResource HintText}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-        </TabControl>
+                </DockPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

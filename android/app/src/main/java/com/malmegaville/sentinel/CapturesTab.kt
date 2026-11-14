@@ -2,8 +2,10 @@ package com.malmegaville.sentinel
 
 import android.app.Dialog
 import android.graphics.BitmapFactory
+import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
@@ -11,6 +13,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -27,13 +30,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-// Android equivalent of CapturesSection.tsx. Deliberately simpler in one
-// spot versus the web version: locations show a simple pinned map (our own
-// map-viewer.html, in an in-app WebView popup - never hands off to a
-// separate Maps app) rather than the web dashboard's full interactive
-// route/live-tracking map. USB files are listed with delete but not
-// downloadable to the phone (there's little
-// reason to copy a stolen device's files onto the relay phone too).
+// Android equivalent of CapturesSection.tsx, running on the shared HUD
+// surfaces: sharp holo panels, mono HUD labels and the same photo/location/USB
+// grouping the web console shows.
 object CapturesTab {
 
     // The backend stores and sends capturedAtUtc as a UTC ISO-8601 instant.
@@ -56,12 +55,19 @@ object CapturesTab {
                 render(activity, container, captures)
             } catch (e: Exception) {
                 container.removeAllViews()
-                container.addView(Ui.mutedText(activity, "Failed to load captures: ${e.message}"))
+                val card = Ui.card(activity)
+                card.addView(Ui.sectionTitle(activity, "Captures"))
+                card.addView(Ui.spacer(activity, 8))
+                card.addView(Ui.mutedText(activity, "Failed to load captures: ${e.message}"))
+                container.addView(card)
             }
         }
     }
 
     private fun render(activity: DashboardActivity, container: LinearLayout, captures: JSONArray) {
+        fun dp(value: Int) = Ui.dp(activity, value)
+        val green = Ui.color(activity, R.color.brand_green)
+
         val photos = mutableListOf<JSONObject>()
         val locations = mutableListOf<JSONObject>()
         val files = mutableListOf<JSONObject>()
@@ -77,24 +83,42 @@ object CapturesTab {
         if (captures.length() == 0) {
             val card = Ui.card(activity)
             card.addView(Ui.sectionTitle(activity, "Captures"))
-            card.addView(Ui.spacer(activity, 8))
-            card.addView(Ui.mutedText(activity, "No captures recorded yet."))
+            card.addView(Ui.spacer(activity, 4))
+            card.addView(
+                Ui.monoText(activity, "NO EVIDENCE RECORDED", 10f, Ui.color(activity, R.color.hud_label), bold = true).apply {
+                    letterSpacing = 0.14f
+                    setPadding(0, dp(14), 0, 0)
+                }
+            )
+            card.addView(
+                Ui.mutedText(activity, "Photos, locations and USB file reports appear here after an agent check-in.")
+                    .apply { setPadding(0, dp(4), 0, dp(10)) }
+            )
             container.addView(card)
             return
         }
 
         if (photos.isNotEmpty()) {
             val card = Ui.card(activity)
-            card.addView(Ui.sectionTitle(activity, "Photos"))
+            val header = Ui.rowSpaceBetween(activity)
+            header.addView(
+                Ui.sectionTitle(activity, "Photos"),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            header.addView(Ui.badge(activity, "${photos.size} photos", green))
+            card.addView(header)
             card.addView(Ui.spacer(activity, 10))
-            val grid = GridLayout(activity).apply { columnCount = 3 }
+
+            // Two columns on a phone keeps the face/detail legible; the web
+            // grid goes denser because it has a laptop-width panel.
+            val grid = GridLayout(activity).apply { columnCount = 2 }
             photos.forEachIndexed { index, photo ->
                 grid.addView(
                     photoThumbnail(activity, photo) { showPhotoDialog(activity, photo, container, locations) },
-                    GridLayout.LayoutParams(GridLayout.spec(index / 3), GridLayout.spec(index % 3, 1f)).apply {
+                    GridLayout.LayoutParams(GridLayout.spec(index / 2), GridLayout.spec(index % 2, 1f)).apply {
                         width = 0
-                        height = Ui.dp(activity, 100)
-                        val m = Ui.dp(activity, 4)
+                        height = dp(138)
+                        val m = dp(4)
                         setMargins(m, m, m, m)
                     }
                 )
@@ -105,19 +129,31 @@ object CapturesTab {
 
         if (locations.isNotEmpty()) {
             val card = Ui.card(activity)
-            card.addView(Ui.sectionTitle(activity, "Locations"))
-            card.addView(Ui.spacer(activity, 10))
+            val header = Ui.rowSpaceBetween(activity)
+            header.addView(
+                Ui.sectionTitle(activity, "Locations"),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            header.addView(Ui.badge(activity, "${locations.size} fixes", Ui.color(activity, R.color.brand_cyan)))
+            card.addView(header)
+            card.addView(Ui.spacer(activity, 8))
             locations.forEachIndexed { index, location ->
                 card.addView(locationRow(activity, location, container))
-                if (index < locations.size - 1) card.addView(Ui.spacer(activity, 10))
+                if (index < locations.size - 1) card.addView(Ui.spacer(activity, 8))
             }
             container.addView(card)
         }
 
         if (files.isNotEmpty()) {
             val card = Ui.card(activity)
-            card.addView(Ui.sectionTitle(activity, "USB Files"))
-            card.addView(Ui.spacer(activity, 10))
+            val header = Ui.rowSpaceBetween(activity)
+            header.addView(
+                Ui.sectionTitle(activity, "USB files"),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            header.addView(Ui.badge(activity, "${files.size} copies", Ui.color(activity, R.color.brand_amber)))
+            card.addView(header)
+            card.addView(Ui.spacer(activity, 8))
             files.forEachIndexed { index, file ->
                 card.addView(usbFileRow(activity, file, container))
                 if (index < files.size - 1) card.addView(Ui.spacer(activity, 8))
@@ -131,15 +167,36 @@ object CapturesTab {
         return id.ifBlank { null }
     }
 
-    private fun photoThumbnail(activity: DashboardActivity, photo: JSONObject, onClick: () -> Unit): ImageView {
-        val imageView = ImageView(activity).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(Ui.color(activity, R.color.slate_900))
+    private fun photoThumbnail(activity: DashboardActivity, photo: JSONObject, onClick: () -> Unit): FrameLayout {
+        fun dp(value: Int) = Ui.dp(activity, value)
+        val frame = FrameLayout(activity).apply {
+            background = HoloDrawable(
+                fillColor = 0x00000000,
+                strokeColor = Ui.withAlpha(Ui.color(activity, R.color.brand_green), 0x33),
+                accentColor = Ui.color(activity, R.color.brand_green),
+                cutPx = 0f,
+                strokePx = 1f,
+                bracketOffsetPx = 0f,
+                showBrackets = false
+            )
+            setPadding(1, 1, 1, 1)
+            isClickable = true
             setOnClickListener {
                 SentinelSound.click(activity)
                 onClick()
             }
         }
+        val imageView = ImageView(activity).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(Ui.color(activity, R.color.brand_dark))
+        }
+        frame.addView(imageView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val placeholder = Ui.monoText(activity, "LOADING…", 8f, Ui.color(activity, R.color.text_hint)).apply {
+            letterSpacing = 0.16f
+            gravity = Gravity.CENTER
+        }
+        frame.addView(placeholder, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
         val id = captureId(photo)
         if (id != null) {
             CoroutineScope(Dispatchers.Main).launch {
@@ -148,15 +205,18 @@ object CapturesTab {
                     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     if (bitmap != null) {
                         imageView.setImageBitmap(bitmap)
+                        placeholder.visibility = View.GONE
                     } else {
+                        placeholder.text = "UNAVAILABLE"
                         Log.e("SentinelCaptures", "Thumbnail decode returned null for capture $id (${bytes.size} bytes)")
                     }
                 } catch (e: Exception) {
+                    placeholder.text = "UNAVAILABLE"
                     Log.e("SentinelCaptures", "Thumbnail load failed for capture $id", e)
                 }
             }
         }
-        return imageView
+        return frame
     }
 
     // The self-monitoring worker captures a photo and its location in the
@@ -184,25 +244,36 @@ object CapturesTab {
     }
 
     private fun showPhotoDialog(activity: DashboardActivity, photo: JSONObject, listContainer: LinearLayout, locations: List<JSONObject> = emptyList()) {
+        fun dp(value: Int) = Ui.dp(activity, value)
         val id = captureId(photo) ?: return
         val dialog = Dialog(activity)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
+        val shell = FrameLayout(activity).apply {
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.bg_card)
-            val pad = Ui.dp(activity, 16)
-            setPadding(pad, pad, pad, pad)
+            background = Ui.panelDrawable(activity)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
         }
+        shell.addView(
+            root,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+
+        val header = Ui.rowSpaceBetween(activity)
+        header.addView(Ui.hudLabel(activity, "Evidence · ${formatCapturedAt(photo.optString("capturedAtUtc", ""))}"))
+        header.addView(Ui.badge(activity, "Webcam", Ui.color(activity, R.color.brand_green)))
+        root.addView(header)
+        root.addView(Ui.spacer(activity, 10))
 
         val imageView = ImageView(activity).apply {
             adjustViewBounds = true
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(activity, 280))
+            background = Ui.inputDrawable(activity)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(300))
         }
         root.addView(imageView)
-        root.addView(Ui.spacer(activity, 12))
-        root.addView(Ui.mutedText(activity, formatCapturedAt(photo.optString("capturedAtUtc", ""))))
-        root.addView(Ui.spacer(activity, 12))
 
         // Matches the web dashboard's grouped photo+location+route view - if
         // this photo has a location from the same capture cycle, show where
@@ -213,24 +284,25 @@ object CapturesTab {
             val lat = metadata.optDouble("latitude", Double.NaN)
             val lon = metadata.optDouble("longitude", Double.NaN)
             if (!lat.isNaN() && !lon.isNaN()) {
-                root.addView(Ui.mutedText(activity, "Location & route"))
-                root.addView(Ui.spacer(activity, 8))
+                root.addView(Ui.spacer(activity, 12))
+                root.addView(Ui.hudLabel(activity, "Location & route"))
+                root.addView(Ui.spacer(activity, 6))
                 val mapWebView = createMapWebView(
                     activity,
                     "${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon&route=1"
                 )
-                root.addView(mapWebView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(activity, 260)))
-                root.addView(Ui.spacer(activity, 12))
+                root.addView(mapWebView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(240)))
             }
         }
 
+        root.addView(Ui.spacer(activity, 12))
         val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         buttonRow.addView(
             Ui.outlineButton(activity, "Close") { dialog.dismiss() },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = Ui.dp(activity, 8) }
+            LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(8) }
         )
         buttonRow.addView(
-            Ui.greenButton(activity, "Delete") {
+            Ui.dangerButton(activity, "Delete") {
                 CoroutineScope(Dispatchers.Main).launch {
                     try {
                         withContext(Dispatchers.IO) { activity.api.deleteCapture(activity.authToken, id) }
@@ -241,12 +313,13 @@ object CapturesTab {
                     }
                 }
             },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            LinearLayout.LayoutParams(0, dp(42), 1f)
         )
         root.addView(buttonRow)
 
-        dialog.setContentView(root)
+        dialog.setContentView(shell)
         dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         CoroutineScope(Dispatchers.Main).launch {
             try {
@@ -266,21 +339,25 @@ object CapturesTab {
     }
 
     private fun locationRow(activity: DashboardActivity, location: JSONObject, listContainer: LinearLayout): LinearLayout {
+        fun dp(value: Int) = Ui.dp(activity, value)
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.bg_input)
+            background = Ui.insetDrawable(activity)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
         }
         val metadata = location.optJSONObject("metadata") ?: JSONObject()
         val lat = metadata.optDouble("latitude", Double.NaN)
         val lon = metadata.optDouble("longitude", Double.NaN)
 
-        row.addView(Ui.mutedText(activity, formatCapturedAt(location.optString("capturedAtUtc", ""))))
-        row.addView(Ui.spacer(activity, 4))
+        row.addView(Ui.hudLabel(activity, "Fix · ${formatCapturedAt(location.optString("capturedAtUtc", ""))}"))
+        row.addView(Ui.spacer(activity, 6))
 
         if (lat.isNaN() || lon.isNaN()) {
             row.addView(Ui.bodyText(activity, "Location unavailable for this attempt."))
         } else {
-            val placeText = Ui.bodyText(activity, "Resolving location…")
+            val placeText = Ui.monoText(activity, "RESOLVING LOCATION…", 9f, Ui.color(activity, R.color.text_muted)).apply {
+                letterSpacing = 0.08f
+            }
             row.addView(placeText)
             CoroutineScope(Dispatchers.Main).launch {
                 try {
@@ -290,13 +367,16 @@ object CapturesTab {
                     placeText.text = "Unknown location"
                 }
             }
-            row.addView(Ui.spacer(activity, 8))
+            row.addView(Ui.spacer(activity, 10))
             val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
             buttonRow.addView(
-                Ui.outlineButton(activity, "View on Map") { showLocationMapDialog(activity, lat, lon) },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = Ui.dp(activity, 8) }
+                Ui.outlineButton(activity, "Open map") { showLocationMapDialog(activity, lat, lon) },
+                LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginEnd = dp(8) }
             )
-            buttonRow.addView(deleteButton(activity, location, listContainer))
+            buttonRow.addView(
+                deleteButton(activity, location, listContainer),
+                LinearLayout.LayoutParams(0, dp(40), 1f)
+            )
             row.addView(buttonRow)
         }
         return row
@@ -351,48 +431,78 @@ object CapturesTab {
     // same as the web dashboard) in a WebView inside a Dialog - stays inside
     // this app the whole time, no external Maps app involved.
     private fun showLocationMapDialog(activity: DashboardActivity, lat: Double, lon: Double) {
+        fun dp(value: Int) = Ui.dp(activity, value)
         val webView = createMapWebView(activity, "${SentinelPrefs.WEB_APP_BASE_URL}/map-viewer.html?lat=$lat&lon=$lon")
 
         val dialog = Dialog(activity)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        val shell = FrameLayout(activity).apply {
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.bg_card)
-            val pad = Ui.dp(activity, 12)
-            setPadding(pad, pad, pad, pad)
+            background = Ui.panelDrawable(activity)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
         }
-        root.addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(activity, 420)))
+        shell.addView(root, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(Ui.hudLabel(activity, "Captured location"))
+        root.addView(Ui.spacer(activity, 8))
+        root.addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(380)))
         root.addView(Ui.spacer(activity, 12))
-        root.addView(Ui.outlineButton(activity, "Close") { dialog.dismiss() })
+        root.addView(
+            Ui.outlineButton(activity, "Close") { dialog.dismiss() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42))
+        )
 
-        dialog.setContentView(root)
+        dialog.setContentView(shell)
         dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun usbFileRow(activity: DashboardActivity, file: JSONObject, listContainer: LinearLayout): LinearLayout {
+        fun dp(value: Int) = Ui.dp(activity, value)
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.bg_input)
+            background = Ui.insetDrawable(activity)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
         }
-        row.addView(
-            TextView(activity).apply {
-                text = file.optString("originalFileName", "Unknown")
-                setTextColor(Ui.color(activity, R.color.text_primary))
-                textSize = 14f
-            }
+        val top = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        top.addView(
+            Ui.monoText(activity, file.optString("originalFileName", "UNKNOWN"), 10f, Ui.color(activity, R.color.text_primary), bold = true).apply {
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.MIDDLE
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) }
         )
-        row.addView(Ui.spacer(activity, 4))
         val sizeBytes = file.optLong("sizeBytes", 0)
         val skipped = file.optBoolean("skipped", false)
-        val skipReason = file.optString("skipReason", "unknown")
-        row.addView(
-            Ui.mutedText(
+        top.addView(
+            Ui.badge(
                 activity,
-                "${if (sizeBytes > 0) "%.1f KB".format(sizeBytes / 1024.0) else "—"} · ${if (skipped) "Skipped ($skipReason)" else "Copied"}"
+                if (skipped) "Skipped" else "Copied",
+                if (skipped) Ui.color(activity, R.color.brand_amber) else Ui.color(activity, R.color.brand_green)
             )
         )
-        row.addView(Ui.spacer(activity, 6))
+        row.addView(top)
+        row.addView(Ui.spacer(activity, 4))
+        val skipReason = file.optString("skipReason", "unknown")
+        row.addView(
+            Ui.monoText(
+                activity,
+                "${if (sizeBytes > 0) "%.1f KB".format(sizeBytes / 1024.0) else "—"} · ${if (skipped) "SKIPPED ($skipReason)" else "COPIED"}",
+                8f,
+                Ui.color(activity, R.color.text_hint)
+            ).apply { letterSpacing = 0.1f }
+        )
+        row.addView(Ui.spacer(activity, 8))
         val buttonRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-        buttonRow.addView(deleteButton(activity, file, listContainer))
+        buttonRow.addView(
+            deleteButton(activity, file, listContainer),
+            LinearLayout.LayoutParams(Ui.dp(activity, 88), dp(36))
+        )
         row.addView(buttonRow)
         return row
     }
@@ -400,10 +510,22 @@ object CapturesTab {
     private fun deleteButton(activity: DashboardActivity, capture: JSONObject, listContainer: LinearLayout): TextView {
         val id = captureId(capture)
         return TextView(activity).apply {
-            text = "Delete"
+            text = "DELETE"
+            typeface = Ui.mono(activity, 600)
+            textSize = 8.5f
+            letterSpacing = 0.16f
+            includeFontPadding = false
+            gravity = Gravity.CENTER
             setTextColor(Ui.color(activity, R.color.status_error))
-            textSize = 13f
-            setPadding(Ui.dp(activity, 8), Ui.dp(activity, 4), Ui.dp(activity, 8), Ui.dp(activity, 4))
+            background = HoloDrawable(
+                fillColor = Ui.withAlpha(Ui.color(activity, R.color.brand_danger), 0x14),
+                strokeColor = Ui.withAlpha(Ui.color(activity, R.color.brand_danger), 0x4D),
+                accentColor = Ui.color(activity, R.color.brand_danger),
+                cutPx = Ui.dp(activity, 6).toFloat(),
+                strokePx = 1f,
+                bracketOffsetPx = 0f,
+                showBrackets = false
+            )
             setOnClickListener {
                 SentinelSound.click(activity)
                 if (id == null) return@setOnClickListener

@@ -1,14 +1,22 @@
 <resources>
-    <!-- Hacker command-center palette, matched to the web console:
-         #030605 base, neon green #00FF88, cyan #00D9FF, alarm red #FF1744. -->
+    <!-- Hacker command-center palette, matched token-for-token to the web
+         console (frontend/tailwind.config.ts) and the Windows agent
+         (windows/DesktopApp/App.xaml):
+         #030605 base, panel #071009, neon green #00FF88, cyan #00D9FF,
+         alarm red #FF1744, amber #FFB020. -->
     <color name="brand_dark">#030605</color>
-    <color name="brand_panel">#06110B</color>
+    <color name="brand_panel">#071009</color>
+    <color name="brand_panel_alpha">#EE071009</color>
+    <color name="brand_ink">#F2030605</color>
     <color name="brand_green">#00FF88</color>
-    <color name="brand_green_dark">#00A657</color>
+    <color name="brand_green_dark">#00B35F</color>
     <color name="brand_cyan">#00D9FF</color>
     <color name="brand_danger">#FF1744</color>
-    <color name="input_background">#040D08</color>
-    <color name="input_border">#1F5A3C</color>
+    <color name="brand_amber">#FFB020</color>
+    <color name="panel_border">#2A00FF88</color>
+    <color name="input_background">#CC040D08</color>
+    <color name="input_border">#3300FF88</color>
+    <color name="hud_label">#A3D4B4</color>
     <color name="text_primary">#F2FFF8</color>
     <color name="text_muted">#8FA99B</color>
     <color name="text_hint">#4E6158</color>
@@ -19,10 +27,10 @@
     <color name="slate_100">#E7F5EC</color>
     <color name="slate_300">#B8C9C1</color>
     <color name="slate_800">#0A1A12</color>
-    <color name="slate_900">#06110B</color>
+    <color name="slate_900">#071009</color>
     <color name="slate_950">#030605</color>
     <color name="sky_400">#00D9FF</color>
-    <color name="amber_400">#FFC24B</color>
+    <color name="amber_400">#FFB020</color>
     <color name="rose_400">#FF1744</color>
     <color name="rose_500">#FF1744</color>
 </resources>

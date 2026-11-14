@@ -22,5 +22,6 @@
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\logo.jpeg" />
+    <Resource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 </Project>

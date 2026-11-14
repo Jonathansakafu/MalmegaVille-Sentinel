@@ -1,8 +1,21 @@
 <resources>
     <style name="Theme.MalmegaVilleSentinel" parent="Theme.MaterialComponents.NoActionBar">
         <item name="android:windowBackground">@color/brand_dark</item>
+        <item name="android:statusBarColor">@color/brand_dark</item>
+        <item name="android:navigationBarColor">@color/brand_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="colorPrimary">@color/brand_green</item>
         <item name="colorAccent">@color/brand_green</item>
-        <item name="android:statusBarColor">@color/brand_dark</item>
+        <item name="colorSecondary">@color/brand_cyan</item>
+        <item name="colorError">@color/brand_danger</item>
+        <item name="colorSurface">@color/brand_panel</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnPrimary">@color/brand_dark</item>
+        <item name="colorButtonNormal">@color/brand_panel</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="android:textColorHint">@color/text_hint</item>
     </style>
 </resources>

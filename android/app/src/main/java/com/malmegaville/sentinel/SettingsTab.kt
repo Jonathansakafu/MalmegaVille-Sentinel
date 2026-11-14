@@ -1,12 +1,14 @@
 package com.malmegaville.sentinel
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.text.InputType
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,11 +24,30 @@ object SettingsTab {
 
     fun build(activity: DashboardActivity, container: LinearLayout) {
         container.removeAllViews()
+        container.addView(buildHeader(activity))
         container.addView(buildNotificationCard(activity))
         container.addView(buildAccountCard(activity))
         container.addView(buildPasswordCard(activity))
         container.addView(buildTrustedUsbCard(activity))
+        container.addView(buildIdentityCard(activity))
         container.addView(buildDiagnosticsCard(activity))
+        container.addView(buildCommandLinkCard(activity))
+    }
+
+    private fun buildHeader(activity: DashboardActivity): LinearLayout {
+        val header = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = Ui.dp(activity, 2)
+            setPadding(pad, 0, pad, Ui.dp(activity, 12))
+        }
+        header.addView(Ui.hudLabel(activity, "Configuration"))
+        header.addView(
+            Ui.monoValue(activity, "SETTINGS", 18f).apply {
+                letterSpacing = 0.1f
+                setPadding(0, Ui.dp(activity, 4), 0, 0)
+            }
+        )
+        return header
     }
 
     // The phone can't be inspected over USB while it's out of reach, so the
@@ -57,7 +78,9 @@ object SettingsTab {
             java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault())
                 .format(java.util.Date(entry.atMillis))
         }.getOrDefault("")
-        block.addView(Ui.bodyText(activity, "$label · $time"))
+        block.addView(Ui.monoText(activity, "$label · $time", 9f, Ui.color(activity, R.color.text_primary), bold = true).apply {
+            letterSpacing = 0.08f
+        })
         block.addView(Ui.spacer(activity, 4))
         block.addView(
             Ui.mutedText(activity, entry.text.lineSequence().take(8).joinToString("\n"))
@@ -67,7 +90,7 @@ object SettingsTab {
 
     private fun buildNotificationCard(activity: DashboardActivity): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.sectionTitle(activity, "Notification Settings"))
+        card.addView(Ui.sectionTitle(activity, "Notification settings"))
         card.addView(Ui.spacer(activity, 4))
         card.addView(Ui.mutedText(activity, "Security alerts are sent to this address/number. Shared with the desktop app."))
         card.addView(Ui.spacer(activity, 12))
@@ -79,7 +102,7 @@ object SettingsTab {
         card.addView(phoneInput.first)
         card.addView(Ui.spacer(activity, 12))
 
-        val status = Ui.mutedText(activity, "")
+        val status = statusLine(activity)
 
         CoroutineScope(Dispatchers.Main).launch {
             try {
@@ -153,7 +176,7 @@ object SettingsTab {
         val usernameInput = labeledInput(activity, "Username", InputType.TYPE_CLASS_TEXT)
         card.addView(usernameInput.first)
         card.addView(Ui.spacer(activity, 12))
-        val status = Ui.mutedText(activity, "")
+        val status = statusLine(activity)
         card.addView(
             Ui.greenButton(activity, "Save Username") {
                 CoroutineScope(Dispatchers.Main).launch {
@@ -182,7 +205,7 @@ object SettingsTab {
         val newInput = labeledInput(activity, "New password", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         card.addView(newInput.first)
         card.addView(Ui.spacer(activity, 12))
-        val status = Ui.mutedText(activity, "")
+        val status = statusLine(activity)
         card.addView(
             Ui.greenButton(activity, "Update Password") {
                 CoroutineScope(Dispatchers.Main).launch {
@@ -223,7 +246,7 @@ object SettingsTab {
         card.addView(labelInput.first)
         card.addView(Ui.spacer(activity, 10))
 
-        val status = Ui.mutedText(activity, "")
+        val status = statusLine(activity)
 
         fun reload() {
             CoroutineScope(Dispatchers.Main).launch {
@@ -284,7 +307,7 @@ object SettingsTab {
             val device = devices.getJSONObject(i)
             val id = device.optString("_id", device.optString("id", ""))
             val row = Ui.rowSpaceBetween(activity).apply {
-                background = ContextCompat.getDrawable(activity, R.drawable.bg_input)
+                background = Ui.insetDrawable(activity)
                 val pad = Ui.dp(activity, 10)
                 setPadding(pad, pad, pad, pad)
             }
@@ -293,15 +316,24 @@ object SettingsTab {
                 TextView(activity).apply {
                     text = device.optString("label", "")
                     setTextColor(Ui.color(activity, R.color.text_primary))
-                    textSize = 14f
+                    typeface = Ui.mono(activity, 600)
+                    textSize = 11f
                 }
             )
-            textColumn.addView(Ui.mutedText(activity, device.optString("identifier", "")))
+            textColumn.addView(
+                Ui.monoText(activity, device.optString("identifier", ""), 8f, Ui.color(activity, R.color.text_hint)).apply {
+                    setPadding(0, Ui.dp(activity, 3), 0, 0)
+                }
+            )
             row.addView(textColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(
                 TextView(activity).apply {
-                    text = "Remove"
+                    text = "REMOVE"
+                    typeface = Ui.mono(activity, 600)
+                    textSize = 8.5f
+                    letterSpacing = 0.14f
                     setTextColor(Ui.color(activity, R.color.status_error))
+                    setPadding(Ui.dp(activity, 8), Ui.dp(activity, 4), Ui.dp(activity, 8), Ui.dp(activity, 4))
                     setOnClickListener { if (id.isNotBlank()) onRemove(id) }
                 }
             )
@@ -310,15 +342,77 @@ object SettingsTab {
         }
     }
 
+    private fun statusLine(activity: DashboardActivity): TextView =
+        Ui.monoText(activity, "", 9f, Ui.color(activity, R.color.text_hint)).apply {
+            letterSpacing = 0.08f
+        }
+
+    private fun identityRow(activity: DashboardActivity, label: String, value: String): LinearLayout {
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, Ui.dp(activity, 8), 0, Ui.dp(activity, 8))
+        }
+        row.addView(Ui.hudLabel(activity, label))
+        row.addView(
+            Ui.monoText(activity, value, 8.5f, Ui.color(activity, R.color.text_primary), bold = true).apply {
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+                gravity = android.view.Gravity.END
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = Ui.dp(activity, 12)
+            }
+        )
+        return row
+    }
+
+    private fun buildIdentityCard(activity: DashboardActivity): LinearLayout {
+        val card = Ui.card(activity)
+        card.addView(Ui.sectionTitle(activity, "Device identity"))
+        card.addView(Ui.spacer(activity, 4))
+        card.addView(Ui.mutedText(activity, "How this phone identifies itself to the command center."))
+        card.addView(Ui.spacer(activity, 8))
+        card.addView(identityRow(activity, "Device ID", SentinelPrefs.getOrCreatePhoneDeviceId(activity)))
+        card.addView(Ui.divider(activity))
+        card.addView(identityRow(activity, "Machine", Build.MODEL ?: "Android device"))
+        card.addView(Ui.divider(activity))
+        card.addView(identityRow(activity, "Platform", "Android ${Build.VERSION.RELEASE}"))
+        card.addView(Ui.divider(activity))
+        card.addView(identityRow(activity, "Relay", "SMS · paired"))
+        return card
+    }
+
+    private fun buildCommandLinkCard(activity: DashboardActivity): LinearLayout {
+        val card = Ui.card(activity)
+        card.addView(Ui.sectionTitle(activity, "Command link"))
+        card.addView(Ui.spacer(activity, 4))
+        card.addView(Ui.mutedText(activity, "Open the full web console for the globe, timeline, reports and restore center."))
+        card.addView(Ui.spacer(activity, 10))
+        card.addView(
+            Ui.outlineButton(activity, "Open web console") {
+                runCatching {
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SentinelPrefs.WEB_APP_BASE_URL)))
+                }
+            }
+        )
+        return card
+    }
+
     private fun labeledInput(activity: DashboardActivity, label: String, inputType: Int): Pair<LinearLayout, EditText> {
         val wrapper = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        wrapper.addView(Ui.mutedText(activity, label))
-        wrapper.addView(Ui.spacer(activity, 4))
+        wrapper.addView(Ui.hudLabel(activity, label))
+        wrapper.addView(Ui.spacer(activity, 5))
         val input = EditText(activity).apply {
             this.inputType = inputType
+            typeface = Ui.mono(activity, 400)
+            textSize = 12f
+            includeFontPadding = false
             setTextColor(Ui.color(activity, R.color.text_primary))
             setHintTextColor(Ui.color(activity, R.color.text_hint))
-            background = ContextCompat.getDrawable(activity, R.drawable.bg_input)
+            background = Ui.inputDrawable(activity)
+            val pad = Ui.dp(activity, 12)
+            setPadding(pad, pad, pad, pad)
         }
         wrapper.addView(input)
         return wrapper to input

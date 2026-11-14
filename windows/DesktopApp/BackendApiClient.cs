@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -183,6 +184,71 @@ public sealed class BackendApiClient
         var result = await response.Content.ReadFromJsonAsync<NotificationTestResult>(JsonOptions);
         var unconfigured = new NotificationChannelResult(false, false, null);
         return result ?? new NotificationTestResult(unconfigured, unconfigured, unconfigured, unconfigured);
+    }
+
+    public async Task<List<DeviceDto>> GetDevicesAsync(string token)
+    {
+        return await GetAuthorizedAsync<List<DeviceDto>>(token, "devices") ?? new List<DeviceDto>();
+    }
+
+    public async Task<List<IncidentDto>> GetIncidentsAsync(string token)
+    {
+        return await GetAuthorizedAsync<List<IncidentDto>>(token, "incidents") ?? new List<IncidentDto>();
+    }
+
+    public async Task<List<CaptureDto>> GetCapturesAsync(string token)
+    {
+        return await GetAuthorizedAsync<List<CaptureDto>>(token, "captures") ?? new List<CaptureDto>();
+    }
+
+    public async Task SetDeviceLostStatusAsync(string token, string deviceMongoId, bool isLost)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"devices/{Uri.EscapeDataString(deviceMongoId)}/lost-status")
+        {
+            Content = JsonContent.Create(new { isLost }, options: JsonOptions)
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowAsync(response);
+    }
+
+    public async Task DeleteDeviceAsync(string token, string deviceMongoId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"devices/{Uri.EscapeDataString(deviceMongoId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowAsync(response);
+    }
+
+    public async Task<byte[]> GetCaptureBytesAsync(string token, string captureId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"captures/{Uri.EscapeDataString(captureId)}/content");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowAsync(response);
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
+    public async Task DeleteCaptureAsync(string token, string captureId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"captures/{Uri.EscapeDataString(captureId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowAsync(response);
+    }
+
+    private async Task<T?> GetAuthorizedAsync<T>(string token, string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowAsync(response);
+        return await response.Content.ReadFromJsonAsync<T>(JsonOptions);
     }
 
     private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)

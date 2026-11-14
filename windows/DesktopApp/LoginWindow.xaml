@@ -1,34 +1,56 @@
 <Window x:Class="MalmegaVille.Sentinel.Desktop.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sign in - MalmegaVille Sentinel" Width="400" SizeToContent="Height"
-        Background="{StaticResource BackgroundBrush}"
+        xmlns:controls="clr-namespace:MalmegaVille.Sentinel.Desktop.Controls"
+        Title="Sign in - MalmegaVille Sentinel" Width="440" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Icon="pack://application:,,,/Assets/app.ico">
-    <Border Style="{StaticResource Card}" Margin="20">
-        <StackPanel>
-            <Border Width="72" Height="72" CornerRadius="18" Background="{StaticResource InputBrush}" BorderBrush="{StaticResource InputBorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,14">
-                <Image Source="pack://application:,,,/Assets/logo.jpeg" Width="72" Height="72" Stretch="UniformToFill">
-                    <Image.Clip>
-                        <RectangleGeometry Rect="0,0,72,72" RadiusX="18" RadiusY="18" />
-                    </Image.Clip>
-                </Image>
-            </Border>
-            <TextBlock Text="Sign in to MalmegaVille Sentinel" FontSize="16" FontWeight="Bold" Margin="0,0,0,4" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-            <TextBlock Text="Use the same account you use on the web dashboard." Style="{StaticResource HintText}" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,20" />
+    <Grid Background="{StaticResource BackgroundBrush}">
+        <Rectangle IsHitTestVisible="False" Opacity="0.5">
+            <Rectangle.Fill>
+                <DrawingBrush TileMode="Tile" Viewport="0,0,42,42" ViewportUnits="Absolute">
+                    <DrawingBrush.Drawing>
+                        <GeometryDrawing>
+                            <GeometryDrawing.Pen>
+                                <Pen Brush="#0D00FF88" Thickness="1" />
+                            </GeometryDrawing.Pen>
+                            <GeometryDrawing.Geometry>
+                                <GeometryGroup>
+                                    <LineGeometry StartPoint="0,0" EndPoint="42,0" />
+                                    <LineGeometry StartPoint="0,0" EndPoint="0,42" />
+                                </GeometryGroup>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingBrush.Drawing>
+                </DrawingBrush>
+            </Rectangle.Fill>
+        </Rectangle>
 
-            <TextBlock Text="Email" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="EmailTextBox" Margin="0,0,0,14" />
+        <controls:HoloPanel Margin="18" Padding="22,24">
+            <StackPanel>
+                <Border Width="64" Height="64" Background="#1400FF88" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,14">
+                    <Image Source="pack://application:,,,/Assets/logo.jpeg" Stretch="UniformToFill" />
+                </Border>
 
-            <TextBlock Text="Password" Style="{StaticResource FieldLabel}" />
-            <PasswordBox x:Name="PasswordInputBox" Margin="0,0,0,14" />
+                <TextBlock Text="MALMEGAVILLE SENTINEL" Style="{StaticResource HudLabel}" Foreground="{StaticResource BrandGreenBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="SECURE ACCESS" FontFamily="{StaticResource MonoFont}" FontSize="19" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <TextBlock Text="AUTHORIZED PERSONNEL ONLY" Style="{StaticResource HudLabel}" HorizontalAlignment="Center" Foreground="{StaticResource FaintTextBrush}" Margin="0,6,0,0" />
 
-            <TextBlock x:Name="ErrorText" Foreground="{StaticResource RoseBrush}" TextWrapping="Wrap" Margin="0,0,0,14" />
+                <Border Height="1" Background="{StaticResource PanelBorderBrush}" Margin="0,18,0,18" />
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Cancel" Width="90" Click="Cancel_Click" IsCancel="True" Style="{StaticResource SecondaryButton}" />
-                <Button x:Name="LoginButton" Content="Sign In" Width="90" Margin="10,0,0,0" Click="Login_Click" IsDefault="True" Style="{StaticResource PrimaryButton}" />
+                <TextBlock Text="OPERATOR EMAIL" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="EmailTextBox" Margin="0,0,0,14" />
+
+                <TextBlock Text="PASSPHRASE" Style="{StaticResource FieldLabel}" />
+                <PasswordBox x:Name="PasswordInputBox" Margin="0,0,0,14" />
+
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource RoseBrush}" FontFamily="{StaticResource MonoFont}" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                <Button x:Name="LoginButton" Content="JACK IN" Click="Login_Click" IsDefault="True" Style="{StaticResource PrimaryButton}" Padding="16,12" />
+                <Button Content="CANCEL" Click="Cancel_Click" IsCancel="True" Style="{StaticResource SecondaryButton}" Padding="16,10" Margin="0,8,0,0" />
+
+                <TextBlock Text="TLS CHANNEL · CREDENTIALS NEVER LEAVE THE VAULT" Style="{StaticResource MonoHint}" HorizontalAlignment="Center" Foreground="{StaticResource FaintTextBrush}" Margin="0,16,0,0" />
             </StackPanel>
-        </StackPanel>
-    </Border>
+        </controls:HoloPanel>
+    </Grid>
 </Window>
